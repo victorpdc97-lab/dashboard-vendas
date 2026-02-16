@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Vendas</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #0f172a; --bg2: #1e293b; --card: #1e293b;
+            --text: #f1f5f9; --text2: #94a3b8; --blue: #3b82f6;
+            --green: #10b981; --purple: #8b5cf6; --orange: #f59e0b;
+            --red: #ef4444; --border: #334155;
+        }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+        .header h1 { font-size: 1.5rem; font-weight: 700; }
+        .header-controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        select, .btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.9rem; cursor: pointer; }
+        .btn-primary { background: var(--blue); border-color: var(--blue); }
+        .btn-primary:hover { background: #2563eb; }
+        .last-update { color: var(--text2); font-size: 0.8rem; }
+        .dashboard { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+        .section-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .badge { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 1rem; font-weight: 600; }
+        .badge-blue { background: rgba(59,130,246,0.2); color: var(--blue); }
+        .badge-green { background: rgba(16,185,129,0.2); color: var(--green); }
+        .vendor-section { margin-bottom: 2rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; }
+        .subsection-label { font-size: 0.85rem; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin: 1rem 0 0.75rem; }
+        .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .card { background: var(--bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-2px); }
+        .card-label { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
+        .card-value { font-size: 1.6rem; font-weight: 700; }
+        .blue { color: var(--blue); } .green { color: var(--green); } .purple { color: var(--purple); } .orange { color: var(--orange); }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+        .chart-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; }
+        .chart-box h3 { font-size: 0.95rem; color: var(--text2); margin-bottom: 1rem; }
+        .loading { display: flex; align-items: center; justify-content: center; min-height: 300px; gap: 1rem; color: var(--text2); font-size: 1.1rem; }
+        .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error { background: rgba(239,68,68,0.1); border: 1px solid var(--red); color: var(--red); padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .auto-badge { display: inline-block; background: rgba(16,185,129,0.15); color: var(--green); font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.5rem; margin-left: 0.5rem; }
+        @media (max-width: 768px) {
+            .header { padding: 1rem; }
+            .dashboard { padding: 1rem; }
+            .cards { grid-template-columns: 1fr 1fr; }
+            .card-value { font-size: 1.3rem; }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 480px) { .cards { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Dashboard de Vendas</h1>
+        <div class="header-controls">
+            <select id="month"></select>
+            <select id="year"></select>
+            <button class="btn btn-primary" onclick="refreshData()">Atualizar</button>
+            <span id="lastUpdate" class="last-update"></span>
+            <span class="auto-badge" id="autoLabel">Auto 1min</span>
+        </div>
+    </header>
+    <main class="dashboard">
+        <div id="loading" class="loading"><div class="spinner"></div>Carregando dados das planilhas...</div>
+        <div id="content" style="display:none">
+            <div id="vendorSections"></div>
+            <div class="charts-grid" id="chartsArea">
+                <div class="chart-box"><h3>Vendas Totais por Vendedor</h3><canvas id="chartTotals"></canvas></div>
+                <div class="chart-box"><h3>Ticket Medio por Vendedor</h3><canvas id="chartTicket"></canvas></div>
+                <div class="chart-box"><h3>Clientes Atendidos por Vendedor</h3><canvas id="chartClients"></canvas></div>
+            </div>
+        </div>
+    </main>
+<script>
+// ===================== CONFIGURACAO =====================
+const VENDORS = [
+    { name: 'Leonardo', id: '1GTBw9T4Y3W8of3faSXgxnAZzZAgaZPmBpYDg8tmmAEM' },
+    { name: 'Diogo',    id: '1lrWS7Jhn_70RoVpKLeDLgRhVTyLYVXrQm9bsY-iRMZ8' }
+];
+const MONTHS = ['JANEIRO','FEVEREIRO','MARCO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+const MONTHS_ALT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+const REFRESH_MS = 60000;
+let charts = {};
+let refreshTimer = null;
+
+// ===================== UTILIDADES =====================
+function parseBR(s) {
+    if (s == null) return null;
+    if (typeof s === 'number') return s;
+    s = String(s).trim();
+    if (!s || s === '#DIV/0!' || s === '#REF!' || s === '-') return null;
+    const n = parseFloat(s.replace(/\./g, '').replace(',', '.'));
+    return isNaN(n) ? null : n;
+}
+
+function cellNum(cell) {
+    if (!cell || cell.v == null) return null;
+    if (typeof cell.v === 'number') return cell.v;
+    return parseBR(String(cell.v));
+}
+
+function isDateStr(s) { return /^\d{2}\/\d{2}/.test(String(s || '')); }
+
+function fmtBRL(v) {
+    return 'R$ ' + v.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+function fmtInt(v) { return Math.round(v).toLocaleString('pt-BR'); }
+
+// ===================== FETCH VIA JSONP =====================
+function fetchSheet(sheetId, sheetName) {
+    return new Promise((resolve, reject) => {
+        const cb = '_cb_' + Math.random().toString(36).substr(2, 8);
+        const timeout = setTimeout(() => { cleanup(); reject(new Error('Tempo esgotado')); }, 15000);
+        const script = document.createElement('script');
+        function cleanup() { clearTimeout(timeout); delete window[cb]; if (script.parentNode) script.remove(); }
+        window[cb] = function(resp) {
+            cleanup();
+            if (resp.status === 'error') { reject(new Error(resp.errors?.[0]?.detailed_message || 'Erro')); return; }
+            resolve(resp.table);
+        };
+        let url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}`;
+        if (sheetName) url += `&sheet=${encodeURIComponent(sheetName)}`;
+        script.src = url;
+        script.onerror = () => { cleanup(); reject(new Error('Falha ao carregar planilha')); };
+        document.body.appendChild(script);
+    });
+}
+
+// ===================== DETECCAO DE COLUNAS =====================
+function detectColumns(table) {
+    const cols = table.cols || [];
+    const rows = table.rows || [];
+
+    // Coletar headers: labels das colunas + primeiras linhas dos dados
+    const labels = cols.map(c => (c.label || '').toUpperCase().trim());
+    const firstRowTexts = [];
+    for (let r = 0; r < Math.min(3, rows.length); r++) {
+        const cells = rows[r]?.c;
+        if (cells) firstRowTexts.push(cells.map(c => String(c?.v ?? c?.f ?? '').toUpperCase().trim()));
+    }
+
+    // Combinar todas as fontes de headers
+    const allHeaders = [labels, ...firstRowTexts];
+
+    // Achar colunas cujo header contem LOJA ou SITE
+    let lojaSections = [], siteSections = [];
+    for (const headers of allHeaders) {
+        for (let i = 0; i < headers.length; i++) {
+            if (headers[i].includes('LOJA') && !lojaSections.includes(i)) lojaSections.push(i);
+            if (headers[i].includes('SITE') && !siteSections.includes(i)) siteSections.push(i);
+        }
+        if (lojaSections.length > 0 && siteSections.length > 0) break;
+    }
+
+    // Funcao: checar se uma coluna tem dados numericos (nao datas)
+    function colHasNumbers(colIdx) {
+        let numCount = 0;
+        for (let r = 0; r < Math.min(40, rows.length); r++) {
+            const cell = rows[r]?.c?.[colIdx];
+            if (!cell || cell.v == null) continue;
+            if (typeof cell.v === 'number') { numCount++; continue; }
+            const s = String(cell.v).trim();
+            if (isDateStr(s)) continue; // data, nao numero
+            if (parseBR(s) !== null) numCount++;
+        }
+        return numCount >= 2;
+    }
+
+    // METODO 1: header da coluna e exatamente "LOJA FÍSICA" ou "SITE"
+    //           (formato Diogo - header direto na coluna de dados)
+    let lojaCols = [], siteCols = [];
+    for (const headers of allHeaders) {
+        for (let i = 0; i < headers.length; i++) {
+            if (/^LOJA\s*F[IÍ]SICA$/.test(headers[i]) && colHasNumbers(i) && !lojaCols.includes(i)) lojaCols.push(i);
+            if (/^SITE$/.test(headers[i]) && colHasNumbers(i) && !siteCols.includes(i)) siteCols.push(i);
+        }
+        if (lojaCols.length > 0 && siteCols.length > 0) break;
+    }
+
+    // Aceitar se encontrou pelo menos uma categoria (pode nao ter vendas de SITE no mes)
+    if (lojaCols.length > 0 || siteCols.length > 0) {
+        // Incluir colunas SITE mesmo sem dados (para meses futuros)
+        if (siteCols.length === 0) {
+            for (const headers of allHeaders) {
+                for (let i = 0; i < headers.length; i++) {
+                    if (/^SITE$/.test(headers[i]) && !siteCols.includes(i)) siteCols.push(i);
+                }
+            }
+        }
+        return { lojaCols, siteCols };
+    }
+
+    // METODO 2: deteccao por secao (formato Leonardo - header "LOJA FÍSICA DATA JULHO" na coluna de datas)
+    // Encontrar inicio de cada secao e pegar colunas numericas entre elas
+    lojaSections.sort((a, b) => a - b);
+    siteSections.sort((a, b) => a - b);
+
+    const lojaStart = lojaSections[0] ?? -1;
+    const siteStart = siteSections[0] ?? -1;
+
+    if (lojaStart < 0 || siteStart < 0) return { lojaCols: [], siteCols: [] };
+
+    // Encontrar proximo bloco apos SITE (ESTORNO, PARCERIAS, BARBEARIA, DATA)
+    let afterSite = cols.length;
+    for (const headers of allHeaders) {
+        for (let i = siteStart + 1; i < headers.length; i++) {
+            const h = headers[i];
+            if (h.includes('ESTORNO') || h.includes('PARCERIA') || h.includes('BARBE') ||
+                (h === 'DATA' && i > siteStart + 1)) {
+                afterSite = Math.min(afterSite, i);
+            }
+        }
+    }
+
+    // Colunas LOJA = colunas numericas entre lojaStart+1 e siteStart
+    lojaCols = [];
+    for (let i = lojaStart + 1; i < siteStart; i++) {
+        if (colHasNumbers(i)) lojaCols.push(i);
+    }
+
+    // Colunas SITE = colunas numericas entre siteStart+1 e afterSite
+    siteCols = [];
+    for (let i = siteStart + 1; i < afterSite; i++) {
+        if (colHasNumbers(i)) siteCols.push(i);
+    }
+
+    return { lojaCols, siteCols };
+}
+
+// ===================== PROCESSAMENTO =====================
+function processTable(table) {
+    const rows = table.rows || [];
+    const { lojaCols, siteCols } = detectColumns(table);
+
+    console.log('Colunas detectadas - LOJA:', lojaCols, 'SITE:', siteCols);
+
+    if (lojaCols.length === 0 && siteCols.length === 0) {
+        return { lojaTotal: 0, lojaClients: 0, lojaTicket: 0, siteTotal: 0, siteClients: 0, siteTicket: 0 };
+    }
+
+    // Todas as colunas de dados para contar preenchidas (detectar resumo)
+    const allDataCols = [...lojaCols, ...siteCols];
+
+    let lojaTotal = 0, lojaClients = 0, siteTotal = 0, siteClients = 0;
+    let reachedSummary = false;
+
+    // Pular a primeira linha (sub-cabecalho com %; o cabecalho principal ja vira label das colunas)
+    for (let r = 1; r < rows.length; r++) {
+        if (reachedSummary) break; // Apos linha de totais, parar completamente
+
+        const cells = rows[r]?.c;
+        if (!cells) continue;
+
+        // Checar texto da linha para detectar resumo/header
+        const rowText = cells.map(c => String(c?.v ?? c?.f ?? '')).join('|').toUpperCase();
+
+        // Pular sub-headers (linhas com % sem datas)
+        if (rowText.includes('%') && !rowText.match(/\d{2}\/\d{2}/)) continue;
+
+        // Pular linhas que contem texto de cabecalho
+        if (rowText.includes('LOJA F') || rowText.includes('META MASTER') ||
+            rowText.includes('BARBEARIA') || rowText.includes('PARCERIA') ||
+            rowText.includes('ESTORNO')) continue;
+
+        // Detectar linha de totais/resumo: parar de processar tudo apos ela
+        if (rowText.includes('COMISS') || rowText.includes('TOTAL')) { reachedSummary = true; continue; }
+
+        // Linha sem data: checar se e continuacao ou inicio do bloco de resumo
+        let hasDate = false;
+        for (let i = 0; i < Math.min(cells.length, 20); i++) {
+            if (isDateStr(cells[i]?.v) || isDateStr(cells[i]?.f)) { hasDate = true; break; }
+        }
+
+        if (!hasDate) {
+            let filledTotal = 0;
+            for (let i = 0; i < cells.length; i++) {
+                const v = cells[i]?.v;
+                if (v != null && String(v).trim() !== '') filledTotal++;
+            }
+            // Linha com muitas colunas preenchidas = linha de totais → parar
+            if (filledTotal >= 6) { reachedSummary = true; continue; }
+        }
+
+        // Somar valores LOJA
+        for (const ci of lojaCols) {
+            const val = cellNum(cells[ci]);
+            if (val !== null && val > 0) { lojaTotal += val; lojaClients++; }
+        }
+
+        // Somar valores SITE
+        for (const ci of siteCols) {
+            const val = cellNum(cells[ci]);
+            if (val !== null && val > 0) { siteTotal += val; siteClients++; }
+        }
+    }
+
+    return {
+        lojaTotal, lojaClients,
+        lojaTicket: lojaClients > 0 ? lojaTotal / lojaClients : 0,
+        siteTotal, siteClients,
+        siteTicket: siteClients > 0 ? siteTotal / siteClients : 0
+    };
+}
+
+// ===================== RENDERIZACAO =====================
+function renderVendorCards(vendorData) {
+    const container = document.getElementById('vendorSections');
+    container.innerHTML = '';
+
+    for (const vd of vendorData) {
+        const section = document.createElement('div');
+        section.className = 'vendor-section';
+
+        if (vd.error) {
+            section.innerHTML = `
+                <div class="section-title">${vd.name}</div>
+                <div class="error">${vd.error}</div>`;
+        } else {
+            const d = vd.data;
+            section.innerHTML = `
+                <div class="section-title">${vd.name}</div>
+                <div class="subsection-label">Loja Fisica</div>
+                <div class="cards">
+                    <div class="card"><div class="card-label">Vendas Total</div><div class="card-value blue">${fmtBRL(d.lojaTotal)}</div></div>
+                    <div class="card"><div class="card-label">Ticket Medio</div><div class="card-value green">${fmtBRL(d.lojaTicket)}</div></div>
+                    <div class="card"><div class="card-label">Clientes Atendidos</div><div class="card-value purple">${fmtInt(d.lojaClients)}</div></div>
+                </div>
+                <div class="subsection-label">Site</div>
+                <div class="cards">
+                    <div class="card"><div class="card-label">Vendas Total</div><div class="card-value blue">${fmtBRL(d.siteTotal)}</div></div>
+                    <div class="card"><div class="card-label">Ticket Medio</div><div class="card-value green">${fmtBRL(d.siteTicket)}</div></div>
+                    <div class="card"><div class="card-label">Clientes Atendidos</div><div class="card-value purple">${fmtInt(d.siteClients)}</div></div>
+                </div>`;
+        }
+        container.appendChild(section);
+    }
+}
+
+function renderCharts(vendorData) {
+    const valid = vendorData.filter(v => !v.error);
+    if (valid.length === 0) { document.getElementById('chartsArea').style.display = 'none'; return; }
+    document.getElementById('chartsArea').style.display = '';
+
+    const names = valid.map(v => v.name);
+    const colors = { loja: 'rgba(59,130,246,0.8)', site: 'rgba(139,92,246,0.8)' };
+
+    function makeChart(canvasId, label1, data1, label2, data2, prefix) {
+        if (charts[canvasId]) charts[canvasId].destroy();
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        charts[canvasId] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: names,
+                datasets: [
+                    { label: label1, data: data1, backgroundColor: colors.loja, borderRadius: 6 },
+                    { label: label2, data: data2, backgroundColor: colors.site, borderRadius: 6 }
+                ]
+            },
+            options: {
+                responsive: true, plugins: { legend: { labels: { color: '#94a3b8' } } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(51,65,85,0.5)' } },
+                    y: { ticks: { color: '#94a3b8', callback: v => prefix ? ('R$ ' + v.toLocaleString('pt-BR')) : v }, grid: { color: 'rgba(51,65,85,0.5)' } }
+                }
+            }
+        });
+    }
+
+    makeChart('chartTotals', 'Loja', valid.map(v => v.data.lojaTotal), 'Site', valid.map(v => v.data.siteTotal), true);
+    makeChart('chartTicket', 'Loja', valid.map(v => v.data.lojaTicket), 'Site', valid.map(v => v.data.siteTicket), true);
+    makeChart('chartClients', 'Loja', valid.map(v => v.data.lojaClients), 'Site', valid.map(v => v.data.siteClients), false);
+}
+
+// ===================== INICIALIZACAO =====================
+function initSelectors() {
+    const selMonth = document.getElementById('month');
+    const selYear = document.getElementById('year');
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0 = janeiro, 1 = fevereiro, etc.
+    const currentYear = now.getFullYear();
+
+    // Anos: a partir de 2026 ate o ano atual
+    for (let y = 2026; y <= currentYear; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        if (y === currentYear) opt.selected = true;
+        selYear.appendChild(opt);
+    }
+
+    // Meses: populados com base no ano selecionado
+    function populateMonths() {
+        const selectedYear = parseInt(selYear.value);
+        const maxMonth = (selectedYear === currentYear) ? currentMonth : 11;
+        selMonth.innerHTML = '';
+        for (let i = 0; i <= maxMonth; i++) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = MONTHS_ALT[i];
+            if (selectedYear === currentYear && i === currentMonth) opt.selected = true;
+            else if (selectedYear < currentYear && i === maxMonth) opt.selected = true;
+            selMonth.appendChild(opt);
+        }
+    }
+
+    populateMonths();
+
+    selYear.addEventListener('change', () => { populateMonths(); refreshData(); });
+    selMonth.addEventListener('change', refreshData);
+}
+
+function getSheetName() {
+    const monthIdx = parseInt(document.getElementById('month').value);
+    const year = parseInt(document.getElementById('year').value);
+    const yy = String(year).slice(-2); // "2026" -> "26"
+    const monthName = MONTHS_ALT[monthIdx]; // "FEVEREIRO"
+    return monthName + ' ' + yy; // "FEVEREIRO 26"
+}
+
+async function fetchForVendor(vendorId) {
+    const sheetName = getSheetName();
+    // Tentar nome principal: "FEVEREIRO 26"
+    // Se falhar, tentar sem acento: "MARCO 26"
+    const variants = [sheetName];
+    const noAccent = sheetName.replace('Ç', 'C').replace('ç', 'c');
+    if (noAccent !== sheetName) variants.push(noAccent);
+
+    let lastErr;
+    for (const name of variants) {
+        try {
+            return await fetchSheet(vendorId, name);
+        } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error('Aba "' + sheetName + '" nao encontrada');
+}
+
+async function refreshData() {
+    const loading = document.getElementById('loading');
+    const content = document.getElementById('content');
+    loading.style.display = 'flex';
+    content.style.display = 'none';
+
+    const sheetName = getSheetName();
+    console.log('Buscando aba:', sheetName);
+
+    // Buscar dados de todos os vendedores em paralelo
+    const promises = VENDORS.map(async vendor => {
+        try {
+            const table = await fetchForVendor(vendor.id);
+            const data = processTable(table);
+            return { name: vendor.name, data };
+        } catch (err) {
+            return { name: vendor.name, error: 'Aba "' + sheetName + '" nao encontrada nesta planilha.' };
+        }
+    });
+
+    const results = await Promise.all(promises);
+
+    renderVendorCards(results);
+    renderCharts(results);
+
+    loading.style.display = 'none';
+    content.style.display = '';
+    document.getElementById('lastUpdate').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR') + ' | Aba: ' + sheetName;
+
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(refreshData, REFRESH_MS);
+}
+
+initSelectors();
+refreshData();
+</script>
+</body>
+</html>
