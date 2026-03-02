@@ -53,6 +53,25 @@ function fmtBRL(v) {
 }
 function fmtInt(v) { return Math.round(v).toLocaleString('pt-BR'); }
 
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => { toast.classList.add('toast-exit'); }, 2500);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 2800);
+}
+
+function animateChildren(parent, selector) {
+    if (!parent) return;
+    parent.querySelectorAll(selector).forEach((el, i) => {
+        el.style.animationDelay = (i * 0.06) + 's';
+        el.classList.add('animate-in');
+    });
+}
+
 function trendHTML(current, previous) {
     if (previous == null || previous === 0) return '';
     const pct = ((current - previous) / previous) * 100;
@@ -83,7 +102,9 @@ function reRenderAll() {
     renderPodium(lastResults);
     renderParticipation(lastResults);
     if (compareMode) return;
+    const oldPos = captureVendorPositions();
     renderVendorCards(lastResults, lastPrevResults);
+    animateVendorReorder(oldPos);
     if (activeTab === 'vendedores') {
         setTimeout(() => renderVendorInlineCharts(lastResults), 0);
         renderVendorComparator(lastResults);
@@ -106,6 +127,12 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(tc => {
         tc.classList.toggle('active', tc.id === 'tab-' + tabId);
     });
+    const tabEl = document.getElementById('tab-' + tabId);
+    if (tabEl) {
+        tabEl.style.animation = 'none';
+        void tabEl.offsetWidth;
+        tabEl.style.animation = 'fadeSlideIn 0.3s ease';
+    }
     if (lastResults) {
         if (tabId === 'graficos') {
             renderCharts(lastResults);
@@ -164,10 +191,7 @@ function readURLParams() {
 function shareLink() {
     updateURLParams();
     navigator.clipboard.writeText(window.location.href).then(() => {
-        const btn = document.getElementById('shareBtn');
-        const original = btn.innerHTML;
-        btn.textContent = 'Copiado!';
-        setTimeout(() => { btn.innerHTML = original; }, 1500);
+        showToast('Link copiado para a área de transferência!', 'success');
     }).catch(() => {
         prompt('Copie o link:', window.location.href);
     });
@@ -228,13 +252,16 @@ function addVendor() {
     saveVendors();
     closeVendorModal();
     refreshData();
+    showToast(`Vendedor "${name}" adicionado!`, 'success');
 }
 
 function removeVendor(index) {
-    if (!confirm('Remover vendedor "' + vendors[index].name + '"?')) return;
+    const name = vendors[index].name;
+    if (!confirm('Remover vendedor "' + name + '"?')) return;
     vendors.splice(index, 1);
     saveVendors();
     refreshData();
+    showToast(`Vendedor "${name}" removido`, 'info');
 }
 
 // ===================== FETCH VIA JSONP =====================
@@ -588,6 +615,7 @@ function renderGlobalKpis(results, prevResults) {
             </div>
         </div>
         ${forecastHTML}`;
+    animateChildren(container, '.global-kpi-card');
 }
 
 // ===================== RENDER: PODIUM =====================
@@ -673,6 +701,31 @@ function renderParticipation(results) {
     });
 }
 
+// ===================== FLIP ANIMATION =====================
+function captureVendorPositions() {
+    const pos = {};
+    document.querySelectorAll('.vendor-section[data-vendor]').forEach(el => {
+        pos[el.dataset.vendor] = el.getBoundingClientRect();
+    });
+    return pos;
+}
+
+function animateVendorReorder(oldPos) {
+    document.querySelectorAll('.vendor-section[data-vendor]').forEach(el => {
+        const old = oldPos[el.dataset.vendor];
+        if (!old) return;
+        const cur = el.getBoundingClientRect();
+        const dy = old.top - cur.top;
+        if (Math.abs(dy) < 5) return;
+        el.style.transform = `translateY(${dy}px)`;
+        el.style.transition = 'none';
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            el.style.transition = 'transform 0.6s cubic-bezier(0.4,0,0.2,1)';
+            el.style.transform = '';
+        }));
+    });
+}
+
 // ===================== RENDER: VENDOR CARDS =====================
 function renderVendorCards(results, prevResults) {
     const container = document.getElementById('vendorSections');
@@ -698,6 +751,7 @@ function renderVendorCards(results, prevResults) {
     ranked.forEach((vd, rank) => {
         const section = document.createElement('div');
         section.className = 'vendor-section' + (rank === 0 && !vd.error ? ' rank-1' : '');
+        section.dataset.vendor = vd.name;
 
         const prevVd = prevResults?.find(p => p.name === vd.name);
         function vTrend(cur, prev) {
@@ -1223,7 +1277,7 @@ function toggleCompare() {
     compareMode = !compareMode;
     document.getElementById('compareControls').classList.toggle('active', compareMode);
     document.getElementById('compareToggle').classList.toggle('btn-primary', compareMode);
-    if (compareMode) refreshData();
+    if (compareMode) refreshData({ toast: true });
     else if (lastResults) reRenderAll();
 }
 
@@ -1352,8 +1406,8 @@ function initSelectors() {
         }
 
         fillMonths();
-        selYear.addEventListener('change', () => { fillMonths(); if (linkRefresh) refreshData(); });
-        if (linkRefresh) selMonth.addEventListener('change', refreshData);
+        selYear.addEventListener('change', () => { fillMonths(); if (linkRefresh) refreshData({ toast: true }); });
+        if (linkRefresh) selMonth.addEventListener('change', () => refreshData({ toast: true }));
     }
 
     populateSelector(document.getElementById('month'), document.getElementById('year'), true);
@@ -1365,7 +1419,7 @@ function initSelectors() {
     document.getElementById('month2').value = prev.m;
 }
 
-async function refreshData() {
+async function refreshData(opts) {
     const loading = document.getElementById('loading');
     const content = document.getElementById('content');
     loading.style.display = '';
@@ -1397,6 +1451,7 @@ async function refreshData() {
         renderCompareView(results, compareResults, sheetName, sheetName2);
     } else {
         renderVendorCards(results, prevResults);
+        animateChildren(document.getElementById('vendorSections'), '.vendor-section');
     }
 
     // Render charts only if their tab is active
@@ -1417,11 +1472,62 @@ async function refreshData() {
     loading.style.display = 'none';
     content.style.display = '';
     document.getElementById('lastUpdate').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR') + ' | Aba: ' + sheetName;
+    if (opts && opts.toast) showToast('Dados atualizados!', 'success');
 
     updateURLParams();
 
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(refreshData, REFRESH_MS);
+}
+
+// ===================== KEYBOARD SHORTCUTS =====================
+function initKeyboardShortcuts() {
+    document.addEventListener('keydown', e => {
+        if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+        switch (e.key) {
+            case '1': switchTab('visao-geral'); break;
+            case '2': switchTab('vendedores'); break;
+            case '3': switchTab('graficos'); break;
+            case 'r': case 'R':
+                if (!e.ctrlKey && !e.metaKey) { e.preventDefault(); refreshData({ toast: true }); }
+                break;
+            case 't': case 'T':
+                if (!e.ctrlKey && !e.metaKey) toggleTheme();
+                break;
+            case 'Escape':
+                closeVendorModal(); closeChartFullscreen();
+                break;
+        }
+    });
+}
+
+// ===================== PULL TO REFRESH =====================
+function initPullToRefresh() {
+    const indicator = document.getElementById('ptrIndicator');
+    if (!indicator || !('ontouchstart' in window)) return;
+    let startY = 0, pulling = false;
+
+    document.addEventListener('touchstart', e => {
+        if (window.scrollY <= 0) { startY = e.touches[0].clientY; pulling = true; }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', e => {
+        if (!pulling) return;
+        const diff = e.touches[0].clientY - startY;
+        indicator.classList.toggle('visible', diff > 70 && window.scrollY <= 0);
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+        if (!pulling) return;
+        pulling = false;
+        if (indicator.classList.contains('visible')) {
+            indicator.querySelector('.ptr-text').textContent = 'Atualizando...';
+            refreshData({ toast: true }).then(() => {
+                indicator.classList.remove('visible');
+                indicator.querySelector('.ptr-text').textContent = 'Puxe para atualizar';
+            });
+        }
+    });
 }
 
 // ===================== BOOT =====================
@@ -1431,6 +1537,8 @@ async function refreshData() {
     initSelectors();
     readURLParams();
     refreshData();
+    initKeyboardShortcuts();
+    initPullToRefresh();
 
     // Register Service Worker
     if ('serviceWorker' in navigator) {

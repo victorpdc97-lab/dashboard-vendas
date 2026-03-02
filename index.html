@@ -14,6 +14,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
+    <div id="ptrIndicator" class="ptr-indicator"><div class="ptr-spinner"></div><span class="ptr-text">Puxe para atualizar</span></div>
     <header class="header">
         <h1>Paradise Vendas</h1>
         <div class="header-controls">
@@ -30,7 +31,7 @@
                 <button class="filter-btn" data-filter="loja" onclick="setChannelFilter('loja')">Loja</button>
                 <button class="filter-btn" data-filter="site" onclick="setChannelFilter('site')">Site</button>
             </div>
-            <button class="btn btn-primary" onclick="refreshData()">Atualizar</button>
+            <button class="btn btn-primary" onclick="refreshData({toast:true})">Atualizar</button>
             <button class="btn btn-sm" onclick="openVendorModal()">+ Vendedor</button>
             <button class="btn btn-sm" onclick="shareLink()" id="shareBtn" title="Copiar link">&#128279;</button>
             <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Alternar tema"></button>
@@ -132,6 +133,7 @@
         </div>
     </div>
 
+    <div id="toastContainer" class="toast-container"></div>
     <script src="js/app.js"></script>
 </body>
 </html>

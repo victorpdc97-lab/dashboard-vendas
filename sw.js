@@ -1,4 +1,4 @@
-const CACHE_NAME = 'paradise-vendas-v2';
+const CACHE_NAME = 'paradise-vendas-v3';
 
 const STATIC_ASSETS = [
     './',
