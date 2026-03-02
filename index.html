@@ -1,64 +1,172 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Vendas</title>
+    <title>Paradise Vendas | Dashboard</title>
+    <meta name="description" content="Dashboard de acompanhamento de vendas - Paradise">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='60' width='15' height='30' rx='3' fill='%233b82f6'/><rect x='30' y='40' width='15' height='50' rx='3' fill='%238b5cf6'/><rect x='50' y='25' width='15' height='65' rx='3' fill='%2310b981'/><rect x='70' y='10' width='15' height='80' rx='3' fill='%23f59e0b'/></svg>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root {
+
+        /* Dark theme (default) */
+        :root, [data-theme="dark"] {
             --bg: #0f172a; --bg2: #1e293b; --card: #1e293b;
             --text: #f1f5f9; --text2: #94a3b8; --blue: #3b82f6;
             --green: #10b981; --purple: #8b5cf6; --orange: #f59e0b;
-            --red: #ef4444; --border: #334155;
+            --red: #ef4444; --border: #334155; --gold: #fbbf24;
+            --chart-grid: rgba(51,65,85,0.5); --chart-text: #94a3b8;
+            --shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-        .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+
+        /* Light theme */
+        [data-theme="light"] {
+            --bg: #f1f5f9; --bg2: #ffffff; --card: #ffffff;
+            --text: #0f172a; --text2: #64748b; --border: #e2e8f0;
+            --chart-grid: rgba(148,163,184,0.3); --chart-text: #64748b;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; }
+
+        /* Header */
+        .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; transition: background 0.3s; }
         .header h1 { font-size: 1.5rem; font-weight: 700; }
-        .header-controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-        select, .btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.9rem; cursor: pointer; }
-        .btn-primary { background: var(--blue); border-color: var(--blue); }
+        .header-controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+        select, .btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.9rem; cursor: pointer; transition: background 0.2s, border-color 0.2s; }
+        select:hover, .btn:hover { border-color: var(--blue); }
+        .btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
         .btn-primary:hover { background: #2563eb; }
+        .btn-sm { padding: 0.4rem 0.75rem; font-size: 0.8rem; }
         .last-update { color: var(--text2); font-size: 0.8rem; }
+        .auto-badge { display: inline-block; background: rgba(16,185,129,0.15); color: var(--green); font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.5rem; }
+        .theme-toggle { background: var(--bg); border: 1px solid var(--border); color: var(--text); width: 38px; height: 38px; border-radius: 0.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: border-color 0.2s; }
+        .theme-toggle:hover { border-color: var(--blue); }
+
+        /* Compare controls */
+        .compare-controls { display: none; align-items: center; gap: 0.5rem; }
+        .compare-controls.active { display: flex; }
+        .compare-vs { color: var(--text2); font-size: 0.85rem; font-weight: 600; }
+
+        /* Dashboard */
         .dashboard { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+
+        /* Global KPIs */
+        .global-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .global-kpi-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; transition: transform 0.2s, background 0.3s; box-shadow: var(--shadow); }
+        .global-kpi-card:hover { transform: translateY(-2px); }
+        .global-kpi-icon { width: 48px; height: 48px; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .global-kpi-icon.i-blue { background: rgba(59,130,246,0.15); }
+        .global-kpi-icon.i-green { background: rgba(16,185,129,0.15); }
+        .global-kpi-icon.i-purple { background: rgba(139,92,246,0.15); }
+        .global-kpi-icon.i-orange { background: rgba(245,158,11,0.15); }
+
+        /* Trends */
+        .trend { display: inline-flex; align-items: center; gap: 0.2rem; font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 0.5rem; margin-top: 0.25rem; }
+        .trend-up { background: rgba(16,185,129,0.15); color: var(--green); }
+        .trend-down { background: rgba(239,68,68,0.15); color: var(--red); }
+        .trend-neutral { background: rgba(148,163,184,0.15); color: var(--text2); }
+
+        /* Vendor sections */
         .section-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
         .badge { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 1rem; font-weight: 600; }
         .badge-blue { background: rgba(59,130,246,0.2); color: var(--blue); }
-        .badge-green { background: rgba(16,185,129,0.2); color: var(--green); }
-        .vendor-section { margin-bottom: 2rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; }
+        .rank-badge { font-size: 1.2rem; }
+        .vendor-section { margin-bottom: 1.5rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; transition: background 0.3s, box-shadow 0.3s; box-shadow: var(--shadow); }
+        .vendor-section.rank-1 { border-color: var(--gold); box-shadow: 0 0 20px rgba(251,191,36,0.1); }
         .subsection-label { font-size: 0.85rem; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin: 1rem 0 0.75rem; }
+
+        /* Cards */
         .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-        .card { background: var(--bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; transition: transform 0.2s; }
+        .card { background: var(--bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; transition: transform 0.2s, background 0.3s; }
         .card:hover { transform: translateY(-2px); }
         .card-label { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
         .card-value { font-size: 1.6rem; font-weight: 700; }
         .blue { color: var(--blue); } .green { color: var(--green); } .purple { color: var(--purple); } .orange { color: var(--orange); }
+
+        /* Compare cards */
+        .compare-values { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .compare-values .card-value { font-size: 1.3rem; }
+        .compare-month-label { font-size: 0.65rem; color: var(--text2); text-transform: uppercase; display: block; margin-bottom: 0.15rem; }
+
+        /* Vendor inline charts */
+        .vendor-charts { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-top: 1rem; }
+        .vendor-chart-box { background: var(--bg); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; }
+        .vendor-chart-box h4 { font-size: 0.85rem; color: var(--text2); margin-bottom: 0.75rem; }
+
+        /* Charts grid */
         .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
-        .chart-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; }
+        .chart-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; box-shadow: var(--shadow); transition: background 0.3s; }
         .chart-box h3 { font-size: 0.95rem; color: var(--text2); margin-bottom: 1rem; }
+
+        /* Loading */
         .loading { display: flex; align-items: center; justify-content: center; min-height: 300px; gap: 1rem; color: var(--text2); font-size: 1.1rem; }
         .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .error { background: rgba(239,68,68,0.1); border: 1px solid var(--red); color: var(--red); padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }
-        .auto-badge { display: inline-block; background: rgba(16,185,129,0.15); color: var(--green); font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 0.5rem; margin-left: 0.5rem; }
+
+        /* Error card (improved) */
+        .error-card { background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.3); border-radius: 0.75rem; padding: 1.5rem; margin: 0.5rem 0; display: flex; gap: 1rem; align-items: flex-start; }
+        .error-card-icon { color: var(--red); flex-shrink: 0; margin-top: 2px; }
+        .error-card-content { flex: 1; }
+        .error-card-content h4 { color: var(--red); margin-bottom: 0.5rem; font-size: 1rem; }
+        .error-card-content p { color: var(--text2); font-size: 0.9rem; margin-bottom: 0.25rem; }
+        .error-hint { font-style: italic; opacity: 0.8; }
+        .error-actions { display: flex; gap: 0.75rem; margin-top: 0.75rem; align-items: center; }
+        .error-actions a { color: var(--blue); text-decoration: none; font-size: 0.85rem; }
+        .error-actions a:hover { text-decoration: underline; }
+
+        /* Remove vendor button */
+        .btn-remove { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 1rem; padding: 0.25rem 0.5rem; border-radius: 0.25rem; margin-left: auto; transition: color 0.2s; }
+        .btn-remove:hover { color: var(--red); }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
+        .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem; padding: 2rem; width: 90%; max-width: 480px; }
+        .modal h2 { margin-bottom: 1.5rem; font-size: 1.25rem; }
+        .modal-label { font-size: 0.8rem; color: var(--text2); display: block; margin-bottom: 0.4rem; font-weight: 600; }
+        .modal input { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.95rem; margin-bottom: 1rem; }
+        .modal input:focus { outline: none; border-color: var(--blue); }
+        .modal-hint { font-size: 0.8rem; color: var(--text2); margin-bottom: 1rem; }
+        .modal-actions { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 0.5rem; }
+
+        /* Empty state */
+        .empty-state { text-align: center; padding: 3rem; color: var(--text2); }
+        .empty-state p { margin-bottom: 1rem; }
+
+        /* Responsive */
+        @media (max-width: 1024px) { .global-kpis { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 768px) {
             .header { padding: 1rem; }
             .dashboard { padding: 1rem; }
             .cards { grid-template-columns: 1fr 1fr; }
             .card-value { font-size: 1.3rem; }
             .charts-grid { grid-template-columns: 1fr; }
+            .vendor-charts { grid-template-columns: 1fr; }
         }
-        @media (max-width: 480px) { .cards { grid-template-columns: 1fr; } }
+        @media (max-width: 480px) {
+            .cards { grid-template-columns: 1fr; }
+            .global-kpis { grid-template-columns: 1fr; }
+            .compare-values { grid-template-columns: 1fr; }
+            .header-controls { gap: 0.5rem; }
+        }
     </style>
 </head>
 <body>
     <header class="header">
-        <h1>Dashboard de Vendas</h1>
+        <h1>Paradise Vendas</h1>
         <div class="header-controls">
             <select id="month"></select>
             <select id="year"></select>
+            <button class="btn btn-sm" id="compareToggle" onclick="toggleCompare()">Comparar</button>
+            <div class="compare-controls" id="compareControls">
+                <span class="compare-vs">vs</span>
+                <select id="month2"></select>
+                <select id="year2"></select>
+            </div>
             <button class="btn btn-primary" onclick="refreshData()">Atualizar</button>
+            <button class="btn btn-sm" onclick="openVendorModal()">+ Vendedor</button>
+            <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Alternar tema"></button>
             <span id="lastUpdate" class="last-update"></span>
             <span class="auto-badge" id="autoLabel">Auto 1min</span>
         </div>
@@ -66,25 +174,58 @@
     <main class="dashboard">
         <div id="loading" class="loading"><div class="spinner"></div>Carregando dados das planilhas...</div>
         <div id="content" style="display:none">
+            <div class="global-kpis" id="globalKpis"></div>
             <div id="vendorSections"></div>
             <div class="charts-grid" id="chartsArea">
                 <div class="chart-box"><h3>Vendas Totais por Vendedor</h3><canvas id="chartTotals"></canvas></div>
-                <div class="chart-box"><h3>Ticket Medio por Vendedor</h3><canvas id="chartTicket"></canvas></div>
+                <div class="chart-box"><h3>Ticket Médio por Vendedor</h3><canvas id="chartTicket"></canvas></div>
                 <div class="chart-box"><h3>Clientes Atendidos por Vendedor</h3><canvas id="chartClients"></canvas></div>
+                <div class="chart-box"><h3>Loja vs Site (Consolidado)</h3><canvas id="chartPieGlobal"></canvas></div>
+                <div class="chart-box" style="grid-column: 1 / -1"><h3>Evolução Mensal <span id="yearlyLabel" style="font-weight:400"></span></h3><canvas id="chartYearly"></canvas></div>
             </div>
         </div>
     </main>
+
+    <!-- Modal: Adicionar Vendedor -->
+    <div id="vendorModal" class="modal-overlay" style="display:none">
+        <div class="modal">
+            <h2>Adicionar Vendedor</h2>
+            <label class="modal-label">Nome do Vendedor</label>
+            <input id="vendorName" placeholder="Ex: João" />
+            <label class="modal-label">ID da Planilha Google Sheets</label>
+            <input id="vendorSheetId" placeholder="Ex: 1GTBw9T4Y3W8of3faSXgx..." />
+            <p class="modal-hint">Copie o ID da URL da planilha: docs.google.com/spreadsheets/d/<b>ID_AQUI</b>/edit</p>
+            <div class="modal-actions">
+                <button class="btn" onclick="closeVendorModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="addVendor()">Adicionar</button>
+            </div>
+        </div>
+    </div>
 <script>
 // ===================== CONFIGURACAO =====================
-const VENDORS = [
+const DEFAULT_VENDORS = [
     { name: 'Leonardo', id: '1GTBw9T4Y3W8of3faSXgxnAZzZAgaZPmBpYDg8tmmAEM' },
     { name: 'Diogo',    id: '1lrWS7Jhn_70RoVpKLeDLgRhVTyLYVXrQm9bsY-iRMZ8' }
 ];
-const MONTHS = ['JANEIRO','FEVEREIRO','MARCO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 const MONTHS_ALT = ['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
 const REFRESH_MS = 60000;
+
+// ===================== STATE =====================
+let vendors = loadVendors();
 let charts = {};
 let refreshTimer = null;
+let compareMode = false;
+let lastResults = null;
+let lastPrevResults = null;
+
+// ===================== SVG ICONS =====================
+const ICON_SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+const ICON_MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>';
+const ICON_DOLLAR = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>';
+const ICON_TICKET = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h12v-4"/><path d="M18 12a2 2 0 000 4h4v-4z"/></svg>';
+const ICON_USERS = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>';
+const ICON_USER = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+const ICON_ALERT = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
 
 // ===================== UTILIDADES =====================
 function parseBR(s) {
@@ -109,6 +250,75 @@ function fmtBRL(v) {
 }
 function fmtInt(v) { return Math.round(v).toLocaleString('pt-BR'); }
 
+function trendHTML(current, previous) {
+    if (previous == null || previous === 0) return '';
+    const pct = ((current - previous) / previous) * 100;
+    if (Math.abs(pct) < 0.5) return '<span class="trend trend-neutral">= 0%</span>';
+    const cls = pct > 0 ? 'trend-up' : 'trend-down';
+    const arrow = pct > 0 ? '&#9650;' : '&#9660;';
+    return `<span class="trend ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+}
+
+// ===================== THEME =====================
+function getThemeColors() {
+    const s = getComputedStyle(document.documentElement);
+    return { text2: s.getPropertyValue('--chart-text').trim(), grid: s.getPropertyValue('--chart-grid').trim() };
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('dashboard-theme', theme);
+    document.getElementById('themeToggle').innerHTML = theme === 'dark' ? ICON_SUN : ICON_MOON;
+    // Re-render charts with new colors
+    if (lastResults) {
+        renderCharts(lastResults);
+        renderVendorInlineCharts(lastResults);
+    }
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+// ===================== VENDOR MANAGEMENT =====================
+function loadVendors() {
+    const saved = localStorage.getItem('dashboard-vendors');
+    if (saved) { try { return JSON.parse(saved); } catch(e) {} }
+    return DEFAULT_VENDORS.map(v => ({...v}));
+}
+
+function saveVendors() {
+    localStorage.setItem('dashboard-vendors', JSON.stringify(vendors));
+}
+
+function openVendorModal() {
+    document.getElementById('vendorName').value = '';
+    document.getElementById('vendorSheetId').value = '';
+    document.getElementById('vendorModal').style.display = 'flex';
+}
+
+function closeVendorModal() {
+    document.getElementById('vendorModal').style.display = 'none';
+}
+
+function addVendor() {
+    const name = document.getElementById('vendorName').value.trim();
+    const id = document.getElementById('vendorSheetId').value.trim();
+    if (!name || !id) return alert('Preencha todos os campos.');
+    vendors.push({ name, id });
+    saveVendors();
+    closeVendorModal();
+    refreshData();
+}
+
+function removeVendor(index) {
+    if (!confirm('Remover vendedor "' + vendors[index].name + '"?')) return;
+    vendors.splice(index, 1);
+    saveVendors();
+    refreshData();
+}
+
 // ===================== FETCH VIA JSONP =====================
 function fetchSheet(sheetId, sheetName) {
     return new Promise((resolve, reject) => {
@@ -129,23 +339,59 @@ function fetchSheet(sheetId, sheetName) {
     });
 }
 
+function getSheetNameFor(monthIdx, year) {
+    const yy = String(year).slice(-2);
+    return MONTHS_ALT[monthIdx] + ' ' + yy;
+}
+
+function getSheetName() {
+    return getSheetNameFor(
+        parseInt(document.getElementById('month').value),
+        parseInt(document.getElementById('year').value)
+    );
+}
+
+async function fetchForVendorWithSheet(vendorId, sheetName) {
+    const variants = [sheetName];
+    const noAccent = sheetName.replace('Ç', 'C').replace('ç', 'c');
+    if (noAccent !== sheetName) variants.push(noAccent);
+    let lastErr;
+    for (const name of variants) {
+        try { return await fetchSheet(vendorId, name); } catch (e) { lastErr = e; }
+    }
+    throw lastErr || new Error('Aba não encontrada');
+}
+
+function getPreviousMonthInfo() {
+    const m = parseInt(document.getElementById('month').value);
+    const y = parseInt(document.getElementById('year').value);
+    return m === 0 ? { monthIdx: 11, year: y - 1 } : { monthIdx: m - 1, year: y };
+}
+
+async function fetchMonthData(sheetName) {
+    return Promise.all(vendors.map(async (vendor, idx) => {
+        try {
+            const table = await fetchForVendorWithSheet(vendor.id, sheetName);
+            const data = processTable(table);
+            return { name: vendor.name, data, originalIdx: idx };
+        } catch {
+            return { name: vendor.name, error: 'Aba "' + sheetName + '" não encontrada nesta planilha.', originalIdx: idx };
+        }
+    }));
+}
+
 // ===================== DETECCAO DE COLUNAS =====================
 function detectColumns(table) {
     const cols = table.cols || [];
     const rows = table.rows || [];
-
-    // Coletar headers: labels das colunas + primeiras linhas dos dados
     const labels = cols.map(c => (c.label || '').toUpperCase().trim());
     const firstRowTexts = [];
     for (let r = 0; r < Math.min(3, rows.length); r++) {
         const cells = rows[r]?.c;
         if (cells) firstRowTexts.push(cells.map(c => String(c?.v ?? c?.f ?? '').toUpperCase().trim()));
     }
-
-    // Combinar todas as fontes de headers
     const allHeaders = [labels, ...firstRowTexts];
 
-    // Achar colunas cujo header contem LOJA ou SITE
     let lojaSections = [], siteSections = [];
     for (const headers of allHeaders) {
         for (let i = 0; i < headers.length; i++) {
@@ -155,7 +401,6 @@ function detectColumns(table) {
         if (lojaSections.length > 0 && siteSections.length > 0) break;
     }
 
-    // Funcao: checar se uma coluna tem dados numericos (nao datas)
     function colHasNumbers(colIdx) {
         let numCount = 0;
         for (let r = 0; r < Math.min(40, rows.length); r++) {
@@ -163,14 +408,13 @@ function detectColumns(table) {
             if (!cell || cell.v == null) continue;
             if (typeof cell.v === 'number') { numCount++; continue; }
             const s = String(cell.v).trim();
-            if (isDateStr(s)) continue; // data, nao numero
+            if (isDateStr(s)) continue;
             if (parseBR(s) !== null) numCount++;
         }
         return numCount >= 2;
     }
 
-    // METODO 1: header da coluna e exatamente "LOJA FÍSICA" ou "SITE"
-    //           (formato Diogo - header direto na coluna de dados)
+    // METODO 1: header direto (formato Diogo)
     let lojaCols = [], siteCols = [];
     for (const headers of allHeaders) {
         for (let i = 0; i < headers.length; i++) {
@@ -180,9 +424,7 @@ function detectColumns(table) {
         if (lojaCols.length > 0 && siteCols.length > 0) break;
     }
 
-    // Aceitar se encontrou pelo menos uma categoria (pode nao ter vendas de SITE no mes)
     if (lojaCols.length > 0 || siteCols.length > 0) {
-        // Incluir colunas SITE mesmo sem dados (para meses futuros)
         if (siteCols.length === 0) {
             for (const headers of allHeaders) {
                 for (let i = 0; i < headers.length; i++) {
@@ -193,17 +435,13 @@ function detectColumns(table) {
         return { lojaCols, siteCols };
     }
 
-    // METODO 2: deteccao por secao (formato Leonardo - header "LOJA FÍSICA DATA JULHO" na coluna de datas)
-    // Encontrar inicio de cada secao e pegar colunas numericas entre elas
+    // METODO 2: deteccao por secao (formato Leonardo)
     lojaSections.sort((a, b) => a - b);
     siteSections.sort((a, b) => a - b);
-
     const lojaStart = lojaSections[0] ?? -1;
     const siteStart = siteSections[0] ?? -1;
-
     if (lojaStart < 0 || siteStart < 0) return { lojaCols: [], siteCols: [] };
 
-    // Encontrar proximo bloco apos SITE (ESTORNO, PARCERIAS, BARBEARIA, DATA)
     let afterSite = cols.length;
     for (const headers of allHeaders) {
         for (let i = siteStart + 1; i < headers.length; i++) {
@@ -215,85 +453,64 @@ function detectColumns(table) {
         }
     }
 
-    // Colunas LOJA = colunas numericas entre lojaStart+1 e siteStart
     lojaCols = [];
-    for (let i = lojaStart + 1; i < siteStart; i++) {
-        if (colHasNumbers(i)) lojaCols.push(i);
-    }
-
-    // Colunas SITE = colunas numericas entre siteStart+1 e afterSite
+    for (let i = lojaStart + 1; i < siteStart; i++) { if (colHasNumbers(i)) lojaCols.push(i); }
     siteCols = [];
-    for (let i = siteStart + 1; i < afterSite; i++) {
-        if (colHasNumbers(i)) siteCols.push(i);
-    }
-
+    for (let i = siteStart + 1; i < afterSite; i++) { if (colHasNumbers(i)) siteCols.push(i); }
     return { lojaCols, siteCols };
 }
 
-// ===================== PROCESSAMENTO =====================
+// ===================== PROCESSAMENTO (com dailyData) =====================
 function processTable(table) {
     const rows = table.rows || [];
     const { lojaCols, siteCols } = detectColumns(table);
 
-    console.log('Colunas detectadas - LOJA:', lojaCols, 'SITE:', siteCols);
-
     if (lojaCols.length === 0 && siteCols.length === 0) {
-        return { lojaTotal: 0, lojaClients: 0, lojaTicket: 0, siteTotal: 0, siteClients: 0, siteTicket: 0 };
+        return { lojaTotal: 0, lojaClients: 0, lojaTicket: 0, siteTotal: 0, siteClients: 0, siteTicket: 0, dailyData: [] };
     }
-
-    // Todas as colunas de dados para contar preenchidas (detectar resumo)
-    const allDataCols = [...lojaCols, ...siteCols];
 
     let lojaTotal = 0, lojaClients = 0, siteTotal = 0, siteClients = 0;
     let reachedSummary = false;
+    const dailyData = [];
 
-    // Pular a primeira linha (sub-cabecalho com %; o cabecalho principal ja vira label das colunas)
     for (let r = 1; r < rows.length; r++) {
-        if (reachedSummary) break; // Apos linha de totais, parar completamente
-
+        if (reachedSummary) break;
         const cells = rows[r]?.c;
         if (!cells) continue;
 
-        // Checar texto da linha para detectar resumo/header
         const rowText = cells.map(c => String(c?.v ?? c?.f ?? '')).join('|').toUpperCase();
-
-        // Pular sub-headers (linhas com % sem datas)
         if (rowText.includes('%') && !rowText.match(/\d{2}\/\d{2}/)) continue;
-
-        // Pular linhas que contem texto de cabecalho
         if (rowText.includes('LOJA F') || rowText.includes('META MASTER') ||
             rowText.includes('BARBEARIA') || rowText.includes('PARCERIA') ||
             rowText.includes('ESTORNO')) continue;
-
-        // Detectar linha de totais/resumo: parar de processar tudo apos ela
         if (rowText.includes('COMISS') || rowText.includes('TOTAL')) { reachedSummary = true; continue; }
 
-        // Linha sem data: checar se e continuacao ou inicio do bloco de resumo
-        let hasDate = false;
+        let hasDate = false, dateStr = '';
         for (let i = 0; i < Math.min(cells.length, 20); i++) {
-            if (isDateStr(cells[i]?.v) || isDateStr(cells[i]?.f)) { hasDate = true; break; }
+            const v = cells[i]?.f || String(cells[i]?.v || '');
+            if (isDateStr(v)) { hasDate = true; dateStr = v.substring(0, 5); break; }
         }
 
         if (!hasDate) {
             let filledTotal = 0;
             for (let i = 0; i < cells.length; i++) {
-                const v = cells[i]?.v;
-                if (v != null && String(v).trim() !== '') filledTotal++;
+                if (cells[i]?.v != null && String(cells[i].v).trim() !== '') filledTotal++;
             }
-            // Linha com muitas colunas preenchidas = linha de totais → parar
             if (filledTotal >= 6) { reachedSummary = true; continue; }
         }
 
-        // Somar valores LOJA
+        let rowLoja = 0, rowSite = 0;
         for (const ci of lojaCols) {
             const val = cellNum(cells[ci]);
-            if (val !== null && val > 0) { lojaTotal += val; lojaClients++; }
+            if (val !== null && val > 0) { lojaTotal += val; lojaClients++; rowLoja += val; }
         }
-
-        // Somar valores SITE
         for (const ci of siteCols) {
             const val = cellNum(cells[ci]);
-            if (val !== null && val > 0) { siteTotal += val; siteClients++; }
+            if (val !== null && val > 0) { siteTotal += val; siteClients++; rowSite += val; }
+        }
+
+        if (hasDate && (rowLoja > 0 || rowSite > 0)) {
+            dailyData.push({ date: dateStr, loja: rowLoja, site: rowSite });
         }
     }
 
@@ -301,56 +518,295 @@ function processTable(table) {
         lojaTotal, lojaClients,
         lojaTicket: lojaClients > 0 ? lojaTotal / lojaClients : 0,
         siteTotal, siteClients,
-        siteTicket: siteClients > 0 ? siteTotal / siteClients : 0
+        siteTicket: siteClients > 0 ? siteTotal / siteClients : 0,
+        dailyData
     };
 }
 
-// ===================== RENDERIZACAO =====================
-function renderVendorCards(vendorData) {
+// ===================== COUNT-UP ANIMATION =====================
+function animateCountUp() {
+    document.querySelectorAll('[data-count]').forEach(el => {
+        const end = parseFloat(el.dataset.count);
+        if (isNaN(end) || end === 0) return;
+        const fmt = el.dataset.format === 'brl' ? fmtBRL : fmtInt;
+        const duration = 800;
+        const start = performance.now();
+        function tick(now) {
+            const p = Math.min((now - start) / duration, 1);
+            const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+            el.textContent = fmt(end * eased);
+            if (p < 1) requestAnimationFrame(tick);
+        }
+        el.textContent = fmt(0);
+        requestAnimationFrame(tick);
+    });
+}
+
+// ===================== RENDER: GLOBAL KPIs =====================
+function renderGlobalKpis(results, prevResults) {
+    const container = document.getElementById('globalKpis');
+    const valid = results.filter(v => !v.error);
+
+    if (valid.length === 0) { container.innerHTML = ''; return; }
+
+    const t = {
+        vendas: valid.reduce((s, v) => s + v.data.lojaTotal + v.data.siteTotal, 0),
+        clientes: valid.reduce((s, v) => s + v.data.lojaClients + v.data.siteClients, 0),
+        vendedores: valid.length
+    };
+    t.ticket = t.clientes > 0 ? t.vendas / t.clientes : 0;
+
+    let pt = null;
+    if (prevResults) {
+        const pv = prevResults.filter(v => !v.error);
+        if (pv.length > 0) {
+            pt = {
+                vendas: pv.reduce((s, v) => s + v.data.lojaTotal + v.data.siteTotal, 0),
+                clientes: pv.reduce((s, v) => s + v.data.lojaClients + v.data.siteClients, 0),
+            };
+            pt.ticket = pt.clientes > 0 ? pt.vendas / pt.clientes : 0;
+        }
+    }
+
+    container.innerHTML = `
+        <div class="global-kpi-card">
+            <div class="global-kpi-icon i-blue">${ICON_DOLLAR}</div>
+            <div>
+                <div class="card-label">Vendas Totais</div>
+                <div class="card-value blue" data-count="${t.vendas}" data-format="brl">${fmtBRL(t.vendas)}</div>
+                ${trendHTML(t.vendas, pt?.vendas)}
+            </div>
+        </div>
+        <div class="global-kpi-card">
+            <div class="global-kpi-icon i-green">${ICON_TICKET}</div>
+            <div>
+                <div class="card-label">Ticket Médio</div>
+                <div class="card-value green" data-count="${t.ticket}" data-format="brl">${fmtBRL(t.ticket)}</div>
+                ${trendHTML(t.ticket, pt?.ticket)}
+            </div>
+        </div>
+        <div class="global-kpi-card">
+            <div class="global-kpi-icon i-purple">${ICON_USERS}</div>
+            <div>
+                <div class="card-label">Total Clientes</div>
+                <div class="card-value purple" data-count="${t.clientes}" data-format="int">${fmtInt(t.clientes)}</div>
+                ${trendHTML(t.clientes, pt?.clientes)}
+            </div>
+        </div>
+        <div class="global-kpi-card">
+            <div class="global-kpi-icon i-orange">${ICON_USER}</div>
+            <div>
+                <div class="card-label">Vendedores Ativos</div>
+                <div class="card-value orange">${t.vendedores}</div>
+            </div>
+        </div>`;
+}
+
+// ===================== RENDER: VENDOR CARDS (ranking + trends + inline charts) =====================
+function renderVendorCards(results, prevResults) {
     const container = document.getElementById('vendorSections');
     container.innerHTML = '';
 
-    for (const vd of vendorData) {
+    if (vendors.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>Nenhum vendedor configurado.</p><button class="btn btn-primary" onclick="openVendorModal()">+ Adicionar Vendedor</button></div>';
+        return;
+    }
+
+    // Sort by total sales for ranking
+    const ranked = results.map((v, i) => ({ ...v, oi: v.originalIdx != null ? v.originalIdx : i }));
+    ranked.sort((a, b) => {
+        if (a.error && b.error) return 0;
+        if (a.error) return 1;
+        if (b.error) return -1;
+        return (b.data.lojaTotal + b.data.siteTotal) - (a.data.lojaTotal + a.data.siteTotal);
+    });
+
+    const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+
+    ranked.forEach((vd, rank) => {
         const section = document.createElement('div');
-        section.className = 'vendor-section';
+        section.className = 'vendor-section' + (rank === 0 && !vd.error ? ' rank-1' : '');
+
+        const prevVd = prevResults?.find(p => p.name === vd.name);
+        function vTrend(cur, prev) {
+            if (!prevVd || prevVd.error) return '';
+            return trendHTML(cur, prev);
+        }
 
         if (vd.error) {
+            const vi = vendors[vd.oi];
             section.innerHTML = `
-                <div class="section-title">${vd.name}</div>
-                <div class="error">${vd.error}</div>`;
+                <div class="section-title">
+                    ${vd.name}
+                    <button class="btn-remove" onclick="removeVendor(${vd.oi})" title="Remover">&#10005;</button>
+                </div>
+                <div class="error-card">
+                    <div class="error-card-icon">${ICON_ALERT}</div>
+                    <div class="error-card-content">
+                        <h4>Dados não encontrados</h4>
+                        <p>${vd.error}</p>
+                        <p class="error-hint">Verifique se a aba do mês existe na planilha ou se o nome está correto.</p>
+                        <div class="error-actions">
+                            <button class="btn btn-primary btn-sm" onclick="retryVendor(${vd.oi})">Tentar Novamente</button>
+                            ${vi ? `<a href="https://docs.google.com/spreadsheets/d/${vi.id}" target="_blank" rel="noopener">Abrir Planilha &#8599;</a>` : ''}
+                        </div>
+                    </div>
+                </div>`;
         } else {
             const d = vd.data;
+            const medal = rank < medals.length ? `<span class="rank-badge">${medals[rank]}</span>` : '';
+            const cDaily = 'daily_' + vd.oi;
+            const cPie = 'pie_' + vd.oi;
+
             section.innerHTML = `
-                <div class="section-title">${vd.name}</div>
-                <div class="subsection-label">Loja Fisica</div>
+                <div class="section-title">
+                    ${medal}${vd.name}
+                    <span class="badge badge-blue">#${rank + 1}</span>
+                    <button class="btn-remove" onclick="removeVendor(${vd.oi})" title="Remover">&#10005;</button>
+                </div>
+                <div class="subsection-label">Loja Física</div>
                 <div class="cards">
-                    <div class="card"><div class="card-label">Vendas Total</div><div class="card-value blue">${fmtBRL(d.lojaTotal)}</div></div>
-                    <div class="card"><div class="card-label">Ticket Medio</div><div class="card-value green">${fmtBRL(d.lojaTicket)}</div></div>
-                    <div class="card"><div class="card-label">Clientes Atendidos</div><div class="card-value purple">${fmtInt(d.lojaClients)}</div></div>
+                    <div class="card"><div class="card-label">Vendas Total</div><div class="card-value blue" data-count="${d.lojaTotal}" data-format="brl">${fmtBRL(d.lojaTotal)}</div>${vTrend(d.lojaTotal, prevVd?.data?.lojaTotal)}</div>
+                    <div class="card"><div class="card-label">Ticket Médio</div><div class="card-value green" data-count="${d.lojaTicket}" data-format="brl">${fmtBRL(d.lojaTicket)}</div>${vTrend(d.lojaTicket, prevVd?.data?.lojaTicket)}</div>
+                    <div class="card"><div class="card-label">Clientes Atendidos</div><div class="card-value purple" data-count="${d.lojaClients}" data-format="int">${fmtInt(d.lojaClients)}</div>${vTrend(d.lojaClients, prevVd?.data?.lojaClients)}</div>
                 </div>
                 <div class="subsection-label">Site</div>
                 <div class="cards">
-                    <div class="card"><div class="card-label">Vendas Total</div><div class="card-value blue">${fmtBRL(d.siteTotal)}</div></div>
-                    <div class="card"><div class="card-label">Ticket Medio</div><div class="card-value green">${fmtBRL(d.siteTicket)}</div></div>
-                    <div class="card"><div class="card-label">Clientes Atendidos</div><div class="card-value purple">${fmtInt(d.siteClients)}</div></div>
+                    <div class="card"><div class="card-label">Vendas Total</div><div class="card-value blue" data-count="${d.siteTotal}" data-format="brl">${fmtBRL(d.siteTotal)}</div>${vTrend(d.siteTotal, prevVd?.data?.siteTotal)}</div>
+                    <div class="card"><div class="card-label">Ticket Médio</div><div class="card-value green" data-count="${d.siteTicket}" data-format="brl">${fmtBRL(d.siteTicket)}</div>${vTrend(d.siteTicket, prevVd?.data?.siteTicket)}</div>
+                    <div class="card"><div class="card-label">Clientes Atendidos</div><div class="card-value purple" data-count="${d.siteClients}" data-format="int">${fmtInt(d.siteClients)}</div>${vTrend(d.siteClients, prevVd?.data?.siteClients)}</div>
+                </div>
+                <div class="vendor-charts">
+                    <div class="vendor-chart-box"><h4>Evolução Diária</h4><canvas id="${cDaily}"></canvas></div>
+                    <div class="vendor-chart-box"><h4>Loja vs Site</h4><canvas id="${cPie}"></canvas></div>
+                </div>`;
+        }
+        container.appendChild(section);
+    });
+}
+
+// ===================== RENDER: COMPARE VIEW =====================
+function renderCompareView(resultsA, resultsB, nameA, nameB) {
+    const container = document.getElementById('vendorSections');
+    container.innerHTML = '';
+
+    for (let i = 0; i < vendors.length; i++) {
+        const a = resultsA[i];
+        const b = resultsB[i];
+        const section = document.createElement('div');
+        section.className = 'vendor-section';
+
+        if (a.error && b.error) {
+            section.innerHTML = `<div class="section-title">${a.name}<button class="btn-remove" onclick="removeVendor(${i})">&#10005;</button></div><div class="error-card"><div class="error-card-icon">${ICON_ALERT}</div><div class="error-card-content"><h4>Sem dados em ambos os meses</h4></div></div>`;
+        } else {
+            const da = a.error ? null : a.data;
+            const db = b.error ? null : b.data;
+
+            function cmpCard(label, valA, valB, fmt, cls) {
+                const va = valA != null ? fmt(valA) : '—';
+                const vb = valB != null ? fmt(valB) : '—';
+                let delta = '';
+                if (valA != null && valB != null && valB !== 0) {
+                    const pct = ((valA - valB) / valB) * 100;
+                    const c = pct > 0 ? 'trend-up' : pct < 0 ? 'trend-down' : 'trend-neutral';
+                    const arr = pct > 0 ? '&#9650;' : pct < 0 ? '&#9660;' : '=';
+                    delta = `<span class="trend ${c}">${arr} ${Math.abs(pct).toFixed(1)}%</span>`;
+                }
+                return `<div class="card"><div class="card-label">${label}</div><div class="compare-values"><div><span class="compare-month-label">${nameA}</span><div class="card-value ${cls}">${va}</div></div><div><span class="compare-month-label">${nameB}</span><div class="card-value ${cls}" style="opacity:0.6">${vb}</div></div></div>${delta}</div>`;
+            }
+
+            section.innerHTML = `
+                <div class="section-title">${a.name}<button class="btn-remove" onclick="removeVendor(${i})">&#10005;</button></div>
+                <div class="subsection-label">Loja Física</div>
+                <div class="cards">
+                    ${cmpCard('Vendas Total', da?.lojaTotal, db?.lojaTotal, fmtBRL, 'blue')}
+                    ${cmpCard('Ticket Médio', da?.lojaTicket, db?.lojaTicket, fmtBRL, 'green')}
+                    ${cmpCard('Clientes', da?.lojaClients, db?.lojaClients, fmtInt, 'purple')}
+                </div>
+                <div class="subsection-label">Site</div>
+                <div class="cards">
+                    ${cmpCard('Vendas Total', da?.siteTotal, db?.siteTotal, fmtBRL, 'blue')}
+                    ${cmpCard('Ticket Médio', da?.siteTicket, db?.siteTicket, fmtBRL, 'green')}
+                    ${cmpCard('Clientes', da?.siteClients, db?.siteClients, fmtInt, 'purple')}
                 </div>`;
         }
         container.appendChild(section);
     }
 }
 
+// ===================== RENDER: INLINE CHARTS (daily line + pie per vendor) =====================
+function renderVendorInlineCharts(results) {
+    const tc = getThemeColors();
+    const valid = results.filter(v => !v.error);
+
+    valid.forEach(vd => {
+        const idx = vd.oi != null ? vd.oi : vd.originalIdx;
+        const cDaily = 'daily_' + idx;
+        const cPie = 'pie_' + idx;
+        const d = vd.data;
+
+        // Daily line chart
+        const canvasD = document.getElementById(cDaily);
+        if (canvasD && d.dailyData && d.dailyData.length > 0) {
+            if (charts[cDaily]) charts[cDaily].destroy();
+            charts[cDaily] = new Chart(canvasD.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: d.dailyData.map(x => x.date),
+                    datasets: [
+                        { label: 'Loja', data: d.dailyData.map(x => x.loja), borderColor: 'rgba(59,130,246,0.8)', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.3, pointRadius: 2 },
+                        { label: 'Site', data: d.dailyData.map(x => x.site), borderColor: 'rgba(139,92,246,0.8)', backgroundColor: 'rgba(139,92,246,0.1)', fill: true, tension: 0.3, pointRadius: 2 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: tc.text2, font: { size: 11 } } } },
+                    scales: {
+                        x: { ticks: { color: tc.text2, font: { size: 10 }, maxRotation: 45 }, grid: { color: tc.grid } },
+                        y: { ticks: { color: tc.text2, font: { size: 10 }, callback: v => 'R$ ' + v.toLocaleString('pt-BR') }, grid: { color: tc.grid } }
+                    }
+                }
+            });
+        }
+
+        // Pie chart
+        const canvasP = document.getElementById(cPie);
+        if (canvasP && (d.lojaTotal > 0 || d.siteTotal > 0)) {
+            if (charts[cPie]) charts[cPie].destroy();
+            const total = d.lojaTotal + d.siteTotal;
+            charts[cPie] = new Chart(canvasP.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Loja Física', 'Site'],
+                    datasets: [{ data: [d.lojaTotal, d.siteTotal], backgroundColor: ['rgba(59,130,246,0.8)', 'rgba(139,92,246,0.8)'], borderWidth: 0 }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { labels: { color: tc.text2, font: { size: 11 } } },
+                        tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmtBRL(ctx.raw)} (${((ctx.raw/total)*100).toFixed(1)}%)` } }
+                    }
+                }
+            });
+        }
+    });
+}
+
+// ===================== RENDER: MAIN CHARTS =====================
 function renderCharts(vendorData) {
     const valid = vendorData.filter(v => !v.error);
     if (valid.length === 0) { document.getElementById('chartsArea').style.display = 'none'; return; }
     document.getElementById('chartsArea').style.display = '';
 
+    const tc = getThemeColors();
     const names = valid.map(v => v.name);
     const colors = { loja: 'rgba(59,130,246,0.8)', site: 'rgba(139,92,246,0.8)' };
 
     function makeChart(canvasId, label1, data1, label2, data2, prefix) {
         if (charts[canvasId]) charts[canvasId].destroy();
-        const ctx = document.getElementById(canvasId).getContext('2d');
-        charts[canvasId] = new Chart(ctx, {
+        const el = document.getElementById(canvasId);
+        if (!el) return;
+        charts[canvasId] = new Chart(el.getContext('2d'), {
             type: 'bar',
             data: {
                 labels: names,
@@ -360,10 +816,11 @@ function renderCharts(vendorData) {
                 ]
             },
             options: {
-                responsive: true, plugins: { legend: { labels: { color: '#94a3b8' } } },
+                responsive: true,
+                plugins: { legend: { labels: { color: tc.text2 } } },
                 scales: {
-                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(51,65,85,0.5)' } },
-                    y: { ticks: { color: '#94a3b8', callback: v => prefix ? ('R$ ' + v.toLocaleString('pt-BR')) : v }, grid: { color: 'rgba(51,65,85,0.5)' } }
+                    x: { ticks: { color: tc.text2 }, grid: { color: tc.grid } },
+                    y: { ticks: { color: tc.text2, callback: v => prefix ? ('R$ ' + v.toLocaleString('pt-BR')) : v }, grid: { color: tc.grid } }
                 }
             }
         });
@@ -372,69 +829,217 @@ function renderCharts(vendorData) {
     makeChart('chartTotals', 'Loja', valid.map(v => v.data.lojaTotal), 'Site', valid.map(v => v.data.siteTotal), true);
     makeChart('chartTicket', 'Loja', valid.map(v => v.data.lojaTicket), 'Site', valid.map(v => v.data.siteTicket), true);
     makeChart('chartClients', 'Loja', valid.map(v => v.data.lojaClients), 'Site', valid.map(v => v.data.siteClients), false);
+
+    // Global pie chart (consolidated)
+    const totalLoja = valid.reduce((s, v) => s + v.data.lojaTotal, 0);
+    const totalSite = valid.reduce((s, v) => s + v.data.siteTotal, 0);
+    const pieEl = document.getElementById('chartPieGlobal');
+    if (pieEl && (totalLoja > 0 || totalSite > 0)) {
+        if (charts['chartPieGlobal']) charts['chartPieGlobal'].destroy();
+        const total = totalLoja + totalSite;
+        charts['chartPieGlobal'] = new Chart(pieEl.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Loja Física', 'Site'],
+                datasets: [{ data: [totalLoja, totalSite], backgroundColor: [colors.loja, colors.site], borderWidth: 0 }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { labels: { color: tc.text2 } },
+                    tooltip: { callbacks: { label: ctx => `${ctx.label}: ${fmtBRL(ctx.raw)} (${((ctx.raw/total)*100).toFixed(1)}%)` } }
+                }
+            }
+        });
+    }
+}
+
+// ===================== COMPARE MODE =====================
+function toggleCompare() {
+    compareMode = !compareMode;
+    document.getElementById('compareControls').classList.toggle('active', compareMode);
+    document.getElementById('compareToggle').classList.toggle('btn-primary', compareMode);
+    if (compareMode) refreshData();
+    else if (lastResults) {
+        renderGlobalKpis(lastResults, lastPrevResults);
+        renderVendorCards(lastResults, lastPrevResults);
+        renderCharts(lastResults);
+        setTimeout(() => renderVendorInlineCharts(lastResults), 0);
+        animateCountUp();
+    }
+}
+
+// ===================== RETRY VENDOR =====================
+async function retryVendor(index) {
+    const vendor = vendors[index];
+    const sheetName = getSheetName();
+    try {
+        const table = await fetchForVendorWithSheet(vendor.id, sheetName);
+        const data = processTable(table);
+        if (lastResults) {
+            lastResults[index] = { name: vendor.name, data, originalIdx: index };
+            renderGlobalKpis(lastResults, lastPrevResults);
+            renderVendorCards(lastResults, lastPrevResults);
+            renderCharts(lastResults);
+            setTimeout(() => renderVendorInlineCharts(lastResults), 0);
+            animateCountUp();
+        }
+    } catch {
+        alert('Ainda não foi possível carregar dados de ' + vendor.name + '.');
+    }
+}
+
+// ===================== YEARLY EVOLUTION CHART =====================
+async function fetchAndRenderYearly() {
+    const year = parseInt(document.getElementById('year').value);
+    const now = new Date();
+    const maxMonth = (year === now.getFullYear()) ? now.getMonth() : 11;
+    const tc = getThemeColors();
+
+    document.getElementById('yearlyLabel').textContent = '(' + year + ')';
+
+    // Vendor colors for lines
+    const lineColors = [
+        { border: '#3b82f6', bg: 'rgba(59,130,246,0.1)' },
+        { border: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+        { border: '#10b981', bg: 'rgba(16,185,129,0.1)' },
+        { border: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+        { border: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
+        { border: '#ec4899', bg: 'rgba(236,72,153,0.1)' },
+    ];
+
+    const monthLabels = [];
+    const vendorMonthlyTotals = vendors.map(() => []);
+
+    // Fetch each month in parallel
+    const monthPromises = [];
+    for (let m = 0; m <= maxMonth; m++) {
+        const sheetName = getSheetNameFor(m, year);
+        monthLabels.push(MONTHS_ALT[m].substring(0, 3));
+        monthPromises.push(
+            Promise.all(vendors.map(async (vendor, vi) => {
+                try {
+                    const table = await fetchForVendorWithSheet(vendor.id, sheetName);
+                    const data = processTable(table);
+                    return { vi, total: data.lojaTotal + data.siteTotal };
+                } catch {
+                    return { vi, total: 0 };
+                }
+            }))
+        );
+    }
+
+    const monthResults = await Promise.all(monthPromises);
+
+    monthResults.forEach(monthVendors => {
+        monthVendors.forEach(r => {
+            vendorMonthlyTotals[r.vi].push(r.total);
+        });
+    });
+
+    // Build datasets
+    const datasets = vendors.map((vendor, vi) => {
+        const color = lineColors[vi % lineColors.length];
+        return {
+            label: vendor.name,
+            data: vendorMonthlyTotals[vi],
+            borderColor: color.border,
+            backgroundColor: color.bg,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+        };
+    });
+
+    // Add total line
+    const totalData = [];
+    for (let m = 0; m <= maxMonth; m++) {
+        let sum = 0;
+        vendors.forEach((_, vi) => { sum += vendorMonthlyTotals[vi][m] || 0; });
+        totalData.push(sum);
+    }
+    datasets.push({
+        label: 'Total',
+        data: totalData,
+        borderColor: '#fbbf24',
+        backgroundColor: 'rgba(251,191,36,0.08)',
+        fill: false,
+        tension: 0.3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 3,
+        borderDash: [6, 3],
+    });
+
+    const el = document.getElementById('chartYearly');
+    if (!el) return;
+    if (charts['chartYearly']) charts['chartYearly'].destroy();
+
+    charts['chartYearly'] = new Chart(el.getContext('2d'), {
+        type: 'line',
+        data: { labels: monthLabels, datasets },
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: tc.text2 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.dataset.label}: ${fmtBRL(ctx.raw)}`
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: tc.text2 }, grid: { color: tc.grid } },
+                y: { ticks: { color: tc.text2, callback: v => 'R$ ' + v.toLocaleString('pt-BR') }, grid: { color: tc.grid } }
+            }
+        }
+    });
 }
 
 // ===================== INICIALIZACAO =====================
 function initSelectors() {
-    const selMonth = document.getElementById('month');
-    const selYear = document.getElementById('year');
     const now = new Date();
-    const currentMonth = now.getMonth(); // 0 = janeiro, 1 = fevereiro, etc.
+    const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Anos: a partir de 2026 ate o ano atual
-    for (let y = 2026; y <= currentYear; y++) {
-        const opt = document.createElement('option');
-        opt.value = y;
-        opt.textContent = y;
-        if (y === currentYear) opt.selected = true;
-        selYear.appendChild(opt);
-    }
-
-    // Meses: populados com base no ano selecionado
-    function populateMonths() {
-        const selectedYear = parseInt(selYear.value);
-        const maxMonth = (selectedYear === currentYear) ? currentMonth : 11;
-        selMonth.innerHTML = '';
-        for (let i = 0; i <= maxMonth; i++) {
+    function populateSelector(selMonth, selYear, linkRefresh) {
+        // Years
+        selYear.innerHTML = '';
+        for (let y = 2025; y <= currentYear; y++) {
             const opt = document.createElement('option');
-            opt.value = i;
-            opt.textContent = MONTHS_ALT[i];
-            if (selectedYear === currentYear && i === currentMonth) opt.selected = true;
-            else if (selectedYear < currentYear && i === maxMonth) opt.selected = true;
-            selMonth.appendChild(opt);
+            opt.value = y; opt.textContent = y;
+            if (y === currentYear) opt.selected = true;
+            selYear.appendChild(opt);
         }
+
+        function fillMonths() {
+            const sy = parseInt(selYear.value);
+            const maxM = (sy === currentYear) ? currentMonth : 11;
+            selMonth.innerHTML = '';
+            for (let i = 0; i <= maxM; i++) {
+                const opt = document.createElement('option');
+                opt.value = i; opt.textContent = MONTHS_ALT[i];
+                if (sy === currentYear && i === currentMonth) opt.selected = true;
+                else if (sy < currentYear && i === maxM) opt.selected = true;
+                selMonth.appendChild(opt);
+            }
+        }
+
+        fillMonths();
+        selYear.addEventListener('change', () => { fillMonths(); if (linkRefresh) refreshData(); });
+        if (linkRefresh) selMonth.addEventListener('change', refreshData);
     }
 
-    populateMonths();
+    populateSelector(document.getElementById('month'), document.getElementById('year'), true);
+    populateSelector(document.getElementById('month2'), document.getElementById('year2'), false);
 
-    selYear.addEventListener('change', () => { populateMonths(); refreshData(); });
-    selMonth.addEventListener('change', refreshData);
-}
-
-function getSheetName() {
-    const monthIdx = parseInt(document.getElementById('month').value);
-    const year = parseInt(document.getElementById('year').value);
-    const yy = String(year).slice(-2); // "2026" -> "26"
-    const monthName = MONTHS_ALT[monthIdx]; // "FEVEREIRO"
-    return monthName + ' ' + yy; // "FEVEREIRO 26"
-}
-
-async function fetchForVendor(vendorId) {
-    const sheetName = getSheetName();
-    // Tentar nome principal: "FEVEREIRO 26"
-    // Se falhar, tentar sem acento: "MARCO 26"
-    const variants = [sheetName];
-    const noAccent = sheetName.replace('Ç', 'C').replace('ç', 'c');
-    if (noAccent !== sheetName) variants.push(noAccent);
-
-    let lastErr;
-    for (const name of variants) {
-        try {
-            return await fetchSheet(vendorId, name);
-        } catch (e) { lastErr = e; }
-    }
-    throw lastErr || new Error('Aba "' + sheetName + '" nao encontrada');
+    // Set compare selectors to previous month by default
+    const prev = currentMonth === 0 ? { m: 11, y: currentYear - 1 } : { m: currentMonth - 1, y: currentYear };
+    document.getElementById('year2').value = prev.y;
+    document.getElementById('year2').dispatchEvent(new Event('change'));
+    document.getElementById('month2').value = prev.m;
 }
 
 async function refreshData() {
@@ -444,34 +1049,55 @@ async function refreshData() {
     content.style.display = 'none';
 
     const sheetName = getSheetName();
-    console.log('Buscando aba:', sheetName);
 
-    // Buscar dados de todos os vendedores em paralelo
-    const promises = VENDORS.map(async vendor => {
-        try {
-            const table = await fetchForVendor(vendor.id);
-            const data = processTable(table);
-            return { name: vendor.name, data };
-        } catch (err) {
-            return { name: vendor.name, error: 'Aba "' + sheetName + '" nao encontrada nesta planilha.' };
-        }
-    });
+    // Fetch current month + previous month (for trends) in parallel
+    const prev = getPreviousMonthInfo();
+    const prevSheetName = getSheetNameFor(prev.monthIdx, prev.year);
 
-    const results = await Promise.all(promises);
+    const [results, prevResults] = await Promise.all([
+        fetchMonthData(sheetName),
+        fetchMonthData(prevSheetName)
+    ]);
 
-    renderVendorCards(results);
-    renderCharts(results);
+    lastResults = results;
+    lastPrevResults = prevResults;
+
+    if (compareMode) {
+        const m2 = parseInt(document.getElementById('month2').value);
+        const y2 = parseInt(document.getElementById('year2').value);
+        const sheetName2 = getSheetNameFor(m2, y2);
+        const compareResults = await fetchMonthData(sheetName2);
+
+        renderGlobalKpis(results, prevResults);
+        renderCompareView(results, compareResults, sheetName, sheetName2);
+        renderCharts(results);
+    } else {
+        renderGlobalKpis(results, prevResults);
+        renderVendorCards(results, prevResults);
+        renderCharts(results);
+        setTimeout(() => renderVendorInlineCharts(results), 0);
+    }
+
+    animateCountUp();
 
     loading.style.display = 'none';
     content.style.display = '';
     document.getElementById('lastUpdate').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR') + ' | Aba: ' + sheetName;
 
+    // Fetch yearly evolution in background (non-blocking)
+    fetchAndRenderYearly();
+
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(refreshData, REFRESH_MS);
 }
 
-initSelectors();
-refreshData();
+// ===================== BOOT =====================
+(function init() {
+    const savedTheme = localStorage.getItem('dashboard-theme') || 'dark';
+    applyTheme(savedTheme);
+    initSelectors();
+    refreshData();
+})();
 </script>
 </body>
 </html>
