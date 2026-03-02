@@ -15,6 +15,9 @@ let compareMode = false;
 let channelFilter = 'all'; // 'all' | 'loja' | 'site'
 let lastResults = null;
 let lastPrevResults = null;
+let activeTab = 'visao-geral';
+let fullscreenChart = null;
+let yearlyFetched = false;
 
 // ===================== SVG ICONS =====================
 const ICON_SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
@@ -25,6 +28,7 @@ const ICON_USERS = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
 const ICON_USER = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 const ICON_ALERT = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
 const ICON_FORECAST = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>';
+const ICON_EXPAND = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
 
 // ===================== UTILIDADES =====================
 function parseBR(s) {
@@ -71,16 +75,102 @@ function setChannelFilter(filter) {
         btn.classList.toggle('active', btn.dataset.filter === filter);
     });
     if (lastResults) reRenderAll();
+    updateURLParams();
 }
 
 function reRenderAll() {
     renderGlobalKpis(lastResults, lastPrevResults);
+    renderPodium(lastResults);
+    renderParticipation(lastResults);
     if (compareMode) return;
     renderVendorCards(lastResults, lastPrevResults);
-    renderCharts(lastResults);
-    setTimeout(() => renderVendorInlineCharts(lastResults), 0);
-    renderWeekdayChart(lastResults);
+    if (activeTab === 'vendedores') {
+        setTimeout(() => renderVendorInlineCharts(lastResults), 0);
+        renderVendorComparator(lastResults);
+    }
+    if (activeTab === 'graficos') {
+        renderCharts(lastResults);
+        renderWeekdayChart(lastResults);
+        renderHeatmap(lastResults);
+        addExpandButtons();
+    }
     animateCountUp();
+}
+
+// ===================== TABS =====================
+function switchTab(tabId) {
+    activeTab = tabId;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabId);
+    });
+    document.querySelectorAll('.tab-content').forEach(tc => {
+        tc.classList.toggle('active', tc.id === 'tab-' + tabId);
+    });
+    if (lastResults) {
+        if (tabId === 'graficos') {
+            renderCharts(lastResults);
+            renderWeekdayChart(lastResults);
+            renderHeatmap(lastResults);
+            if (!yearlyFetched) fetchAndRenderYearly();
+            setTimeout(() => addExpandButtons(), 50);
+        }
+        if (tabId === 'vendedores') {
+            setTimeout(() => renderVendorInlineCharts(lastResults), 0);
+            renderVendorComparator(lastResults);
+        }
+    }
+    updateURLParams();
+}
+
+// ===================== URL PARAMS / SHARE =====================
+function updateURLParams() {
+    const params = new URLSearchParams();
+    const m = document.getElementById('month');
+    const y = document.getElementById('year');
+    if (m && y) {
+        params.set('month', m.value);
+        params.set('year', y.value);
+    }
+    params.set('tab', activeTab);
+    params.set('filter', channelFilter);
+    const newUrl = window.location.pathname + '?' + params.toString();
+    window.history.replaceState({}, '', newUrl);
+}
+
+function readURLParams() {
+    const params = new URLSearchParams(window.location.search);
+    const month = params.get('month');
+    const year = params.get('year');
+    const tab = params.get('tab');
+    const filter = params.get('filter');
+
+    if (year) {
+        const yel = document.getElementById('year');
+        yel.value = year;
+        yel.dispatchEvent(new Event('change'));
+    }
+    if (month) document.getElementById('month').value = month;
+    if (filter && ['all', 'loja', 'site'].includes(filter)) {
+        channelFilter = filter;
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filter === filter);
+        });
+    }
+    if (tab && ['visao-geral', 'vendedores', 'graficos'].includes(tab)) {
+        switchTab(tab);
+    }
+}
+
+function shareLink() {
+    updateURLParams();
+    navigator.clipboard.writeText(window.location.href).then(() => {
+        const btn = document.getElementById('shareBtn');
+        const original = btn.innerHTML;
+        btn.textContent = 'Copiado!';
+        setTimeout(() => { btn.innerHTML = original; }, 1500);
+    }).catch(() => {
+        prompt('Copie o link:', window.location.href);
+    });
 }
 
 // ===================== THEME =====================
@@ -94,9 +184,13 @@ function applyTheme(theme) {
     localStorage.setItem('dashboard-theme', theme);
     document.getElementById('themeToggle').innerHTML = theme === 'dark' ? ICON_SUN : ICON_MOON;
     if (lastResults) {
-        renderCharts(lastResults);
-        renderVendorInlineCharts(lastResults);
-        renderWeekdayChart(lastResults);
+        if (activeTab === 'graficos') {
+            renderCharts(lastResults);
+            renderWeekdayChart(lastResults);
+        }
+        if (activeTab === 'vendedores') {
+            renderVendorInlineCharts(lastResults);
+        }
     }
 }
 
@@ -282,7 +376,7 @@ function detectColumns(table) {
     return { lojaCols, siteCols };
 }
 
-// ===================== PROCESSAMENTO (com dailyData) =====================
+// ===================== PROCESSAMENTO =====================
 function processTable(table) {
     const rows = table.rows || [];
     const { lojaCols, siteCols } = detectColumns(table);
@@ -364,7 +458,7 @@ function animateCountUp() {
     });
 }
 
-// ===================== FORECAST (PREVISÃO DE FECHAMENTO) =====================
+// ===================== FORECAST =====================
 function calcForecast(results) {
     const valid = results.filter(v => !v.error);
     if (valid.length === 0) return null;
@@ -375,7 +469,6 @@ function calcForecast(results) {
     const isCurrentMonth = (year === now.getFullYear() && monthIdx === now.getMonth());
     const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
 
-    // Get all daily data to find how many days have sales
     let maxDays = 0;
     valid.forEach(v => { if (v.data.dailyData.length > maxDays) maxDays = v.data.dailyData.length; });
 
@@ -402,7 +495,7 @@ function calcForecast(results) {
     };
 }
 
-// ===================== RENDER: GLOBAL KPIs =====================
+// ===================== RENDER: GLOBAL KPIs (with tooltips) =====================
 function renderGlobalKpis(results, prevResults) {
     const container = document.getElementById('globalKpis');
     const valid = results.filter(v => !v.error);
@@ -427,6 +520,12 @@ function renderGlobalKpis(results, prevResults) {
             pt.ticket = pt.clientes > 0 ? pt.vendas / pt.clientes : 0;
         }
     }
+
+    // Build tooltip breakdowns
+    const bd = valid.map(v => ({ name: v.name, ...getFiltered(v.data) }));
+    const ttVendas = bd.map(v => `${v.name}: ${fmtBRL(v.total)}`).join('&#10;');
+    const ttTicket = bd.map(v => `${v.name}: ${fmtBRL(v.ticket)}`).join('&#10;');
+    const ttClientes = bd.map(v => `${v.name}: ${fmtInt(v.clients)}`).join('&#10;');
 
     // Forecast
     const fc = calcForecast(results);
@@ -457,7 +556,7 @@ function renderGlobalKpis(results, prevResults) {
     }
 
     container.innerHTML = `
-        <div class="global-kpi-card">
+        <div class="global-kpi-card" data-tooltip="${ttVendas}">
             <div class="global-kpi-icon i-blue">${ICON_DOLLAR}</div>
             <div>
                 <div class="card-label">Vendas Totais</div>
@@ -465,7 +564,7 @@ function renderGlobalKpis(results, prevResults) {
                 ${trendHTML(t.vendas, pt?.vendas)}
             </div>
         </div>
-        <div class="global-kpi-card">
+        <div class="global-kpi-card" data-tooltip="${ttTicket}">
             <div class="global-kpi-icon i-green">${ICON_TICKET}</div>
             <div>
                 <div class="card-label">Ticket Médio</div>
@@ -473,7 +572,7 @@ function renderGlobalKpis(results, prevResults) {
                 ${trendHTML(t.ticket, pt?.ticket)}
             </div>
         </div>
-        <div class="global-kpi-card">
+        <div class="global-kpi-card" data-tooltip="${ttClientes}">
             <div class="global-kpi-icon i-purple">${ICON_USERS}</div>
             <div>
                 <div class="card-label">Total Clientes</div>
@@ -489,6 +588,89 @@ function renderGlobalKpis(results, prevResults) {
             </div>
         </div>
         ${forecastHTML}`;
+}
+
+// ===================== RENDER: PODIUM =====================
+function renderPodium(results) {
+    const container = document.getElementById('podium');
+    if (!container) return;
+    const valid = results.filter(v => !v.error);
+    if (valid.length < 2) { container.innerHTML = ''; return; }
+
+    const ranked = valid.map(v => ({
+        name: v.name,
+        total: getFiltered(v.data).total
+    })).sort((a, b) => b.total - a.total).slice(0, 3);
+
+    const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+    const classes = ['podium-1', 'podium-2', 'podium-3'];
+
+    // Display order: 2nd, 1st, 3rd (classic podium)
+    const order = ranked.length >= 3 ? [1, 0, 2] : [1, 0];
+    const placesHTML = order.map(i => {
+        const v = ranked[i];
+        if (!v) return '';
+        return `
+            <div class="podium-place ${classes[i]}">
+                <span class="podium-medal">${medals[i]}</span>
+                <span class="podium-name">${v.name}</span>
+                <span class="podium-value">${fmtBRL(v.total)}</span>
+                <div class="podium-bar">
+                    <span class="podium-rank">#${i + 1}</span>
+                </div>
+            </div>`;
+    }).join('');
+
+    container.innerHTML = `<div class="podium">${placesHTML}</div>`;
+}
+
+// ===================== RENDER: PARTICIPATION DONUT =====================
+function renderParticipation(results) {
+    const container = document.getElementById('participationArea');
+    if (!container) return;
+    const valid = results.filter(v => !v.error);
+    if (valid.length === 0) { container.innerHTML = ''; return; }
+
+    if (!document.getElementById('chartParticipation')) {
+        container.innerHTML = `
+            <div class="chart-box" style="max-width:500px; margin: 2rem auto;">
+                <h3>Participação por Vendedor (%)</h3>
+                <canvas id="chartParticipation"></canvas>
+            </div>`;
+    }
+
+    const tc = getThemeColors();
+    const vendorColors = [
+        'rgba(59,130,246,0.8)', 'rgba(139,92,246,0.8)', 'rgba(16,185,129,0.8)',
+        'rgba(245,158,11,0.8)', 'rgba(239,68,68,0.8)', 'rgba(236,72,153,0.8)',
+    ];
+
+    const data = valid.map(v => getFiltered(v.data).total);
+    const labels = valid.map(v => v.name);
+    const total = data.reduce((s, v) => s + v, 0);
+
+    const el = document.getElementById('chartParticipation');
+    if (!el) return;
+    if (charts['chartParticipation']) charts['chartParticipation'].destroy();
+
+    charts['chartParticipation'] = new Chart(el.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{ data, backgroundColor: vendorColors.slice(0, valid.length), borderWidth: 0 }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: tc.text2, padding: 16 } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `${ctx.label}: ${fmtBRL(ctx.raw)} (${total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0}%)`
+                    }
+                }
+            }
+        }
+    });
 }
 
 // ===================== RENDER: VENDOR CARDS =====================
@@ -755,7 +937,6 @@ function renderWeekdayChart(results) {
     const monthIdx = parseInt(document.getElementById('month').value);
     const tc = getThemeColors();
 
-    // Aggregate by weekday
     const weekdaySums = Array(7).fill(0);
     const weekdayCounts = Array(7).fill(0);
 
@@ -774,7 +955,6 @@ function renderWeekdayChart(results) {
     });
 
     const avgData = weekdaySums.map((sum, i) => weekdayCounts[i] > 0 ? sum / weekdayCounts[i] : 0);
-    // Reorder: Mon-Sun
     const ordered = [1, 2, 3, 4, 5, 6, 0];
     const labels = ordered.map(i => WEEKDAYS[i]);
     const data = ordered.map(i => avgData[i]);
@@ -808,6 +988,234 @@ function renderWeekdayChart(results) {
             }
         }
     });
+}
+
+// ===================== HEATMAP =====================
+function renderHeatmap(results) {
+    const container = document.getElementById('heatmapArea');
+    if (!container) return;
+    const valid = results.filter(v => !v.error);
+    if (valid.length === 0) { container.innerHTML = ''; return; }
+
+    const monthIdx = parseInt(document.getElementById('month').value);
+    const year = parseInt(document.getElementById('year').value);
+    const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+    const firstDayOfWeek = new Date(year, monthIdx, 1).getDay(); // 0=Sun
+
+    const dayTotals = {};
+    valid.forEach(v => {
+        v.data.dailyData.forEach(dd => {
+            const day = parseInt(dd.date.split('/')[0]);
+            const val = channelFilter === 'loja' ? dd.loja : channelFilter === 'site' ? dd.site : dd.loja + dd.site;
+            dayTotals[day] = (dayTotals[day] || 0) + val;
+        });
+    });
+
+    const values = Object.values(dayTotals);
+    const maxVal = Math.max(...values, 1);
+
+    function getHeatColor(value) {
+        if (value === 0 || value == null) return 'var(--border)';
+        const ratio = value / maxVal;
+        if (ratio < 0.2) return 'rgba(59,130,246,0.15)';
+        if (ratio < 0.4) return 'rgba(59,130,246,0.3)';
+        if (ratio < 0.6) return 'rgba(59,130,246,0.5)';
+        if (ratio < 0.8) return 'rgba(59,130,246,0.7)';
+        return 'rgba(59,130,246,0.9)';
+    }
+
+    const weekdayHeaders = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+    const startOffset = (firstDayOfWeek + 6) % 7; // Mon-based
+
+    let cellsHTML = weekdayHeaders.map(d => `<div class="heatmap-header">${d}</div>`).join('');
+
+    for (let i = 0; i < startOffset; i++) {
+        cellsHTML += '<div class="heatmap-cell empty"></div>';
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        const val = dayTotals[day] || 0;
+        const color = getHeatColor(val);
+        const tooltip = val > 0 ? fmtBRL(val) : 'Sem vendas';
+        cellsHTML += `<div class="heatmap-cell" style="background:${color}" title="Dia ${day}: ${tooltip}">${day}</div>`;
+    }
+
+    const legendColors = ['rgba(59,130,246,0.15)', 'rgba(59,130,246,0.3)', 'rgba(59,130,246,0.5)', 'rgba(59,130,246,0.7)', 'rgba(59,130,246,0.9)'];
+
+    container.innerHTML = `
+        <div class="heatmap-box">
+            <h3>Heatmap de Vendas - ${MONTHS_ALT[monthIdx]} ${year}</h3>
+            <div class="heatmap-grid">${cellsHTML}</div>
+            <div class="heatmap-legend">
+                <span>Menos</span>
+                <div class="heatmap-legend-bar">
+                    ${legendColors.map(c => `<span style="background:${c}"></span>`).join('')}
+                </div>
+                <span>Mais</span>
+            </div>
+        </div>`;
+}
+
+// ===================== VENDOR COMPARATOR =====================
+function renderVendorComparator(results) {
+    const container = document.getElementById('vendorCompare');
+    if (!container) return;
+    const valid = results.filter(v => !v.error);
+    if (valid.length < 2) { container.innerHTML = ''; return; }
+
+    const options = valid.map((v, i) => `<option value="${i}">${v.name}</option>`).join('');
+
+    container.innerHTML = `
+        <div class="comparator-box">
+            <h3>Comparativo Vendedor vs Vendedor</h3>
+            <div class="comparator-selectors">
+                <select id="cmpVendorA" onchange="updateComparator()">${options}</select>
+                <span class="comparator-vs">VS</span>
+                <select id="cmpVendorB" onchange="updateComparator()">
+                    ${valid.map((v, i) => `<option value="${i}" ${i === 1 ? 'selected' : ''}>${v.name}</option>`).join('')}
+                </select>
+            </div>
+            <div id="comparatorResults"></div>
+            <div class="comparator-chart-area">
+                <canvas id="chartComparator"></canvas>
+            </div>
+        </div>`;
+
+    updateComparator();
+}
+
+function updateComparator() {
+    if (!lastResults) return;
+    const valid = lastResults.filter(v => !v.error);
+    const selA = document.getElementById('cmpVendorA');
+    const selB = document.getElementById('cmpVendorB');
+    if (!selA || !selB) return;
+    const idxA = parseInt(selA.value);
+    const idxB = parseInt(selB.value);
+    if (isNaN(idxA) || isNaN(idxB) || idxA === idxB) return;
+
+    const a = valid[idxA], b = valid[idxB];
+    if (!a || !b) return;
+
+    const fa = getFiltered(a.data), fb = getFiltered(b.data);
+    const metrics = [
+        { label: 'Vendas Totais', a: fa.total, b: fb.total, fmt: fmtBRL },
+        { label: 'Ticket Médio', a: fa.ticket, b: fb.ticket, fmt: fmtBRL },
+        { label: 'Clientes', a: fa.clients, b: fb.clients, fmt: fmtInt },
+    ];
+
+    const resultsDiv = document.getElementById('comparatorResults');
+    resultsDiv.innerHTML = metrics.map(m => {
+        const winA = m.a > m.b, winB = m.b > m.a;
+        return `
+            <div class="comparator-row">
+                <div class="comparator-metric ${winA ? 'winner' : ''}">
+                    <span style="font-weight:700">${m.fmt(m.a)}</span>
+                    ${winA ? ' <span style="color:var(--green)">&#10003;</span>' : ''}
+                </div>
+                <div class="comparator-label">${m.label}</div>
+                <div class="comparator-metric ${winB ? 'winner' : ''}">
+                    ${winB ? '<span style="color:var(--green)">&#10003;</span> ' : ''}
+                    <span style="font-weight:700">${m.fmt(m.b)}</span>
+                </div>
+            </div>`;
+    }).join('');
+
+    const tc = getThemeColors();
+    const el = document.getElementById('chartComparator');
+    if (!el) return;
+    if (charts['chartComparator']) charts['chartComparator'].destroy();
+
+    charts['chartComparator'] = new Chart(el.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: ['Vendas', 'Ticket Médio', 'Clientes'],
+            datasets: [
+                { label: a.name, data: [fa.total, fa.ticket, fa.clients], backgroundColor: 'rgba(59,130,246,0.8)', borderRadius: 6 },
+                { label: b.name, data: [fb.total, fb.ticket, fb.clients], backgroundColor: 'rgba(139,92,246,0.8)', borderRadius: 6 }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { labels: { color: tc.text2 } } },
+            scales: {
+                x: { ticks: { color: tc.text2 }, grid: { color: tc.grid } },
+                y: { ticks: { color: tc.text2 }, grid: { color: tc.grid } }
+            }
+        }
+    });
+}
+
+// ===================== CHART FULLSCREEN =====================
+function addExpandButtons() {
+    document.querySelectorAll('.chart-box').forEach(box => {
+        if (box.querySelector('.chart-expand-btn')) return;
+        const btn = document.createElement('button');
+        btn.className = 'chart-expand-btn';
+        btn.innerHTML = ICON_EXPAND;
+        btn.onclick = () => openChartFullscreen(box);
+        box.appendChild(btn);
+    });
+}
+
+function openChartFullscreen(chartBox) {
+    const title = chartBox.querySelector('h3')?.textContent || 'Gráfico';
+    const originalCanvas = chartBox.querySelector('canvas');
+    if (!originalCanvas) return;
+
+    const chartId = originalCanvas.id;
+    const chartInstance = charts[chartId];
+    if (!chartInstance) return;
+
+    document.getElementById('chartFullscreenTitle').textContent = title;
+    const overlay = document.getElementById('chartFullscreen');
+    overlay.style.display = 'flex';
+
+    const fsCanvas = document.getElementById('chartFullscreenCanvas');
+    if (fullscreenChart) fullscreenChart.destroy();
+
+    // Clone chart data and create new instance at full size
+    const clonedData = JSON.parse(JSON.stringify(chartInstance.data));
+    const origOpts = chartInstance.options;
+    const tc = getThemeColors();
+
+    fullscreenChart = new Chart(fsCanvas.getContext('2d'), {
+        type: chartInstance.config.type,
+        data: clonedData,
+        options: {
+            ...origOpts,
+            maintainAspectRatio: false,
+            plugins: {
+                ...origOpts.plugins,
+                legend: { labels: { color: tc.text2, font: { size: 14 } } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const v = ctx.raw;
+                            if (typeof v === 'number' && v > 100) return `${ctx.dataset.label || ''}: ${fmtBRL(v)}`;
+                            return `${ctx.dataset.label || ''}: ${v}`;
+                        }
+                    }
+                }
+            },
+            scales: origOpts.scales ? {
+                x: { ...origOpts.scales.x, ticks: { color: tc.text2, font: { size: 13 } }, grid: { color: tc.grid } },
+                y: { ...origOpts.scales.y, ticks: { color: tc.text2, font: { size: 13 } }, grid: { color: tc.grid } }
+            } : undefined
+        }
+    });
+
+    document.addEventListener('keydown', handleEscFullscreen);
+}
+
+function closeChartFullscreen() {
+    document.getElementById('chartFullscreen').style.display = 'none';
+    if (fullscreenChart) { fullscreenChart.destroy(); fullscreenChart = null; }
+    document.removeEventListener('keydown', handleEscFullscreen);
+}
+
+function handleEscFullscreen(e) {
+    if (e.key === 'Escape') closeChartFullscreen();
 }
 
 // ===================== COMPARE MODE =====================
@@ -911,6 +1319,8 @@ async function fetchAndRenderYearly() {
             }
         }
     });
+
+    yearlyFetched = true;
 }
 
 // ===================== INICIALIZAÇÃO =====================
@@ -960,6 +1370,7 @@ async function refreshData() {
     const content = document.getElementById('content');
     loading.style.display = '';
     content.style.display = 'none';
+    yearlyFetched = false;
 
     const sheetName = getSheetName();
     const prev = getPreviousMonthInfo();
@@ -973,29 +1384,41 @@ async function refreshData() {
     lastResults = results;
     lastPrevResults = prevResults;
 
+    // Always render Visão Geral content
+    renderGlobalKpis(results, prevResults);
+    renderPodium(results);
+    renderParticipation(results);
+
     if (compareMode) {
         const m2 = parseInt(document.getElementById('month2').value);
         const y2 = parseInt(document.getElementById('year2').value);
         const sheetName2 = getSheetNameFor(m2, y2);
         const compareResults = await fetchMonthData(sheetName2);
-        renderGlobalKpis(results, prevResults);
         renderCompareView(results, compareResults, sheetName, sheetName2);
-        renderCharts(results);
     } else {
-        renderGlobalKpis(results, prevResults);
         renderVendorCards(results, prevResults);
-        renderCharts(results);
-        setTimeout(() => renderVendorInlineCharts(results), 0);
     }
 
-    renderWeekdayChart(results);
+    // Render charts only if their tab is active
+    if (activeTab === 'vendedores') {
+        setTimeout(() => renderVendorInlineCharts(results), 0);
+        renderVendorComparator(results);
+    }
+    if (activeTab === 'graficos') {
+        renderCharts(results);
+        renderWeekdayChart(results);
+        renderHeatmap(results);
+        fetchAndRenderYearly();
+        setTimeout(() => addExpandButtons(), 50);
+    }
+
     animateCountUp();
 
     loading.style.display = 'none';
     content.style.display = '';
     document.getElementById('lastUpdate').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR') + ' | Aba: ' + sheetName;
 
-    fetchAndRenderYearly();
+    updateURLParams();
 
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(refreshData, REFRESH_MS);
@@ -1006,6 +1429,7 @@ async function refreshData() {
     const savedTheme = localStorage.getItem('dashboard-theme') || 'dark';
     applyTheme(savedTheme);
     initSelectors();
+    readURLParams();
     refreshData();
 
     // Register Service Worker

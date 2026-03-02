@@ -32,6 +32,7 @@
             </div>
             <button class="btn btn-primary" onclick="refreshData()">Atualizar</button>
             <button class="btn btn-sm" onclick="openVendorModal()">+ Vendedor</button>
+            <button class="btn btn-sm" onclick="shareLink()" id="shareBtn" title="Copiar link">&#128279;</button>
             <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Alternar tema"></button>
             <span id="lastUpdate" class="last-update"></span>
             <span class="auto-badge" id="autoLabel">Auto 1min</span>
@@ -71,15 +72,37 @@
 
         <!-- Content -->
         <div id="content" style="display:none">
-            <div class="global-kpis" id="globalKpis"></div>
-            <div id="vendorSections"></div>
-            <div class="charts-grid" id="chartsArea">
-                <div class="chart-box"><h3>Vendas Totais por Vendedor</h3><canvas id="chartTotals"></canvas></div>
-                <div class="chart-box"><h3>Ticket Médio por Vendedor</h3><canvas id="chartTicket"></canvas></div>
-                <div class="chart-box"><h3>Clientes Atendidos por Vendedor</h3><canvas id="chartClients"></canvas></div>
-                <div class="chart-box"><h3>Loja vs Site (Consolidado)</h3><canvas id="chartPieGlobal"></canvas></div>
-                <div class="chart-box"><h3>Média de Vendas por Dia da Semana</h3><canvas id="chartWeekday"></canvas></div>
-                <div class="chart-box" style="grid-column: 1 / -1"><h3>Evolução Mensal <span id="yearlyLabel" style="font-weight:400"></span></h3><canvas id="chartYearly"></canvas></div>
+            <!-- Tab Navigation -->
+            <div class="tab-nav" id="tabNav">
+                <button class="tab-btn active" data-tab="visao-geral" onclick="switchTab('visao-geral')">Visão Geral</button>
+                <button class="tab-btn" data-tab="vendedores" onclick="switchTab('vendedores')">Vendedores</button>
+                <button class="tab-btn" data-tab="graficos" onclick="switchTab('graficos')">Gráficos</button>
+            </div>
+
+            <!-- Tab: Visão Geral -->
+            <div class="tab-content active" id="tab-visao-geral">
+                <div class="global-kpis" id="globalKpis"></div>
+                <div id="podium"></div>
+                <div id="participationArea"></div>
+            </div>
+
+            <!-- Tab: Vendedores -->
+            <div class="tab-content" id="tab-vendedores">
+                <div id="vendorSections"></div>
+                <div id="vendorCompare"></div>
+            </div>
+
+            <!-- Tab: Gráficos -->
+            <div class="tab-content" id="tab-graficos">
+                <div class="charts-grid" id="chartsArea">
+                    <div class="chart-box"><h3>Vendas Totais por Vendedor</h3><canvas id="chartTotals"></canvas></div>
+                    <div class="chart-box"><h3>Ticket Médio por Vendedor</h3><canvas id="chartTicket"></canvas></div>
+                    <div class="chart-box"><h3>Clientes Atendidos por Vendedor</h3><canvas id="chartClients"></canvas></div>
+                    <div class="chart-box"><h3>Loja vs Site (Consolidado)</h3><canvas id="chartPieGlobal"></canvas></div>
+                    <div class="chart-box"><h3>Média de Vendas por Dia da Semana</h3><canvas id="chartWeekday"></canvas></div>
+                    <div class="chart-box" style="grid-column: 1 / -1"><h3>Evolução Mensal <span id="yearlyLabel" style="font-weight:400"></span></h3><canvas id="chartYearly"></canvas></div>
+                </div>
+                <div id="heatmapArea"></div>
             </div>
         </div>
     </main>
@@ -97,6 +120,15 @@
                 <button class="btn" onclick="closeVendorModal()">Cancelar</button>
                 <button class="btn btn-primary" onclick="addVendor()">Adicionar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Chart Overlay -->
+    <div id="chartFullscreen" class="chart-fullscreen-overlay" style="display:none">
+        <div class="chart-fullscreen-content">
+            <button class="chart-fullscreen-close" onclick="closeChartFullscreen()">&times;</button>
+            <h3 id="chartFullscreenTitle"></h3>
+            <canvas id="chartFullscreenCanvas"></canvas>
         </div>
     </div>
 
