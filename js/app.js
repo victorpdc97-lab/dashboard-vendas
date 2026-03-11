@@ -362,7 +362,7 @@ function detectColumns(table) {
     let lojaCols = [], siteCols = [];
     for (const headers of allHeaders) {
         for (let i = 0; i < headers.length; i++) {
-            if (/^LOJA\s*F[IÍ]SICA$/.test(headers[i]) && colHasNumbers(i) && !lojaCols.includes(i)) lojaCols.push(i);
+            if ((/^LOJA\s*F[IÍ]SICA$/.test(headers[i]) || /^META\s*MASTER$/.test(headers[i])) && colHasNumbers(i) && !lojaCols.includes(i)) lojaCols.push(i);
             if (/^SITE$/.test(headers[i]) && colHasNumbers(i) && !siteCols.includes(i)) siteCols.push(i);
         }
         if (lojaCols.length > 0 && siteCols.length > 0) break;
