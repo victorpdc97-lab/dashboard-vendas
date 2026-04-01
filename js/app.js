@@ -423,10 +423,17 @@ function processTable(table) {
 
         const rowText = cells.map(c => String(c?.v ?? c?.f ?? '')).join('|').toUpperCase();
         if (rowText.includes('%') && !rowText.match(/\d{2}\/\d{2}/)) continue;
-        if (rowText.includes('LOJA F') || rowText.includes('META MASTER') ||
-            rowText.includes('BARBEARIA') || rowText.includes('PARCERIA') ||
-            rowText.includes('ESTORNO')) continue;
         if (rowText.includes('COMISS') || rowText.includes('TOTAL')) { reachedSummary = true; continue; }
+
+        // Skip header rows — but only if the row has NO date (data rows may mention these terms)
+        let rowHasDate = false;
+        for (let i = 0; i < Math.min(cells.length, 5); i++) {
+            const v = cells[i]?.f || String(cells[i]?.v || '');
+            if (isDateStr(v)) { rowHasDate = true; break; }
+        }
+        if (!rowHasDate && (rowText.includes('LOJA F') || rowText.includes('META MASTER') ||
+            rowText.includes('BARBEARIA') || rowText.includes('PARCERIA') ||
+            rowText.includes('ESTORNO'))) continue;
 
         let hasDate = false, dateStr = '';
         for (let i = 0; i < Math.min(cells.length, 20); i++) {
